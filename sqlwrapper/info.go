@@ -5,6 +5,18 @@ import (
 	"fmt"
 )
 
+// DBInfo contains a collection of TableInfo.
+type DBInfo interface {
+	// NumTable() returns the number of tables in DBInfo.
+	NumTable() int
+
+	// Table() returns the i'th table in DBInfo, it painc if i not in range [0, NumTable()) .
+	Table(i int) TableInfo
+
+	// TableByName() returns the named table or nil if not found.
+	TableByName(tableName string) (tableInfo TableInfo, found bool)
+}
+
 // TableInfo contains information of a given database table.
 type TableInfo interface {
 	// Same as TableName().
@@ -119,6 +131,9 @@ type StmtInfo interface {
 
 	// Args() returns a list of argument of the wrapper function.
 	Args() []ArgInfo
+
+	// Env() returns custom key/value pair that can be used in template renderring.
+	Env(name string) string
 
 	// Text() returns the statment text used for template renderring.
 	Text() string
