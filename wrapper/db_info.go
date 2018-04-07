@@ -182,6 +182,14 @@ func (info *DBInfo) TableByName(tableName string) (tableInfo *TableInfo, found b
 	return info.tables[i], true
 }
 
+func (info *DBInfo) TableByNameM(tableName string) *TableInfo {
+	tableInfo, found := info.TableByName(tableName)
+	if !found {
+		panic(fmt.Errorf("Table %+q not found", tableName))
+	}
+	return tableInfo
+}
+
 func (info *TableInfo) String() string {
 	return info.tableName
 }
@@ -206,6 +214,14 @@ func (info *TableInfo) ColumnByName(columnName string) (columnInfo *ColumnInfo, 
 	return info.columns[i], true
 }
 
+func (info *TableInfo) ColumnByNameM(columnName string) *ColumnInfo {
+	columnInfo, found := info.ColumnByName(columnName)
+	if !found {
+		panic(fmt.Errorf("Column %+q not found in table %+q", columnName, info.tableName))
+	}
+	return columnInfo
+}
+
 func (info *TableInfo) NumIndex() int {
 	return len(info.indices)
 }
@@ -222,6 +238,14 @@ func (info *TableInfo) IndexByName(indexName string) (indexInfo *IndexInfo, foun
 	return info.indices[i], true
 }
 
+func (info *TableInfo) IndexByNameM(indexName string) *IndexInfo {
+	indexInfo, found := info.IndexByName(indexName)
+	if !found {
+		panic(fmt.Errorf("Index %+q not found in table %+q", indexName, info.tableName))
+	}
+	return indexInfo
+}
+
 func (info *TableInfo) NumFK() int {
 	return len(info.fks)
 }
@@ -236,6 +260,14 @@ func (info *TableInfo) FKByName(fkName string) (fkInfo *FKInfo, found bool) {
 		return nil, false
 	}
 	return info.fks[i], true
+}
+
+func (info *TableInfo) FKByNameM(fkName string) *FKInfo {
+	fkInfo, found := info.FKByName(fkName)
+	if !found {
+		panic(fmt.Errorf("FK %+q not found in table %+q", fkName, info.tableName))
+	}
+	return fkInfo
 }
 
 func (info *TableInfo) Primary() *IndexInfo {

@@ -6,7 +6,7 @@ import (
 
 // Driver is the common interface to talk to different database systems.
 type Driver interface {
-	// ExtractTableNames() extract all table names.
+	// ExtractTableNames() extract all table names in current database (schema).
 	ExtractTableNames(db *sql.DB) (tableNames []string, err error)
 
 	// ExtractColumns() extract all columns' name and type in a table.
@@ -18,11 +18,11 @@ type Driver interface {
 	// ExtractIndex() extract information of a given index.
 	ExtractIndex(db *sql.DB, tableName, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error)
 
-	// ExtractFKNames() extract all foreign key constraints for a given table.
+	// ExtractFKNames() extract all foreign key constraint names for a given table.
 	ExtractFKNames(db *sql.DB, tableName string) (fkNames []string, err error)
 
 	// ExtractFK() extract information of a given foreign key constraint.
-	ExtractFK(db *sql.DB, tableName, fkName string) (columnNames []string, refTable string, refColumnNames []string, err error)
+	ExtractFK(db *sql.DB, tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error)
 }
 
 var (
