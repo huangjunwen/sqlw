@@ -1,4 +1,4 @@
-package wrapper
+package info
 
 import (
 	"database/sql"
@@ -20,8 +20,8 @@ type TableInfo struct {
 	indexNames    map[string]int
 	fks           []*FKInfo
 	fkNames       map[string]int
-	primary       int // <0 if not exists
-	autoIncColumn int // <0 if not exists TODO
+	primary       *IndexInfo  // nil if not exists
+	autoIncColumn *ColumnInfo // nil if not exists
 }
 
 type ColumnInfo struct {
@@ -53,6 +53,8 @@ func ExtractDBInfo(drv driver.Driver, db *sql.DB, filter func(string) bool) (*DB
 		filter = func(string) bool { return true }
 	}
 
+	_, supportAutoInc := drv.(driver.DriverWithAutoInc)
+
 	dbInfo := &DBInfo{
 		tableNames: make(map[string]int),
 	}
@@ -68,13 +70,11 @@ func ExtractDBInfo(drv driver.Driver, db *sql.DB, filter func(string) bool) (*DB
 		}
 
 		tableInfo := &TableInfo{
-			db:            dbInfo,
-			tableName:     tableName,
-			columnNames:   make(map[string]int),
-			indexNames:    make(map[string]int),
-			fkNames:       make(map[string]int),
-			primary:       -1,
-			autoIncColumn: -1,
+			db:          dbInfo,
+			tableName:   tableName,
+			columnNames: make(map[string]int),
+			indexNames:  make(map[string]int),
+			fkNames:     make(map[string]int),
 		}
 
 		// fill columns info
@@ -93,6 +93,16 @@ func ExtractDBInfo(drv driver.Driver, db *sql.DB, filter func(string) bool) (*DB
 			}
 			tableInfo.columns = append(tableInfo.columns, columnInfo)
 			tableInfo.columnNames[columnName] = len(tableInfo.columns) - 1
+		}
+
+		if supportAutoInc {
+			autoIncColumnName, err := drv.(driver.DriverWithAutoInc).ExtractAutoIncColumn(db, tableName)
+			if err != nil {
+				return nil, err
+			}
+			if autoIncColumnName != "" {
+				tableInfo.autoIncColumn = tableInfo.columns[tableInfo.columnNames[autoIncColumnName]]
+			}
 		}
 
 		// fill indices info
@@ -124,7 +134,7 @@ func ExtractDBInfo(drv driver.Driver, db *sql.DB, filter func(string) bool) (*DB
 
 			// This is primary index
 			if isPrimary {
-				tableInfo.primary = len(tableInfo.indices) - 1
+				tableInfo.primary = indexInfo
 			}
 		}
 
@@ -271,14 +281,11 @@ func (info *TableInfo) FKByNameM(fkName string) *FKInfo {
 }
 
 func (info *TableInfo) Primary() *IndexInfo {
-	if info.primary < 0 {
-		return nil
-	}
-	return info.indices[info.primary]
+	return info.primary
 }
 
 func (info *TableInfo) AutoIncColumn() *ColumnInfo {
-	panic("Not Implemented")
+	return info.autoIncColumn
 }
 
 func (info *ColumnInfo) String() string {

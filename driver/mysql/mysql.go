@@ -9,6 +9,11 @@ import (
 
 type mysqlDriver struct{}
 
+var (
+	_ driver.Driver            = mysqlDriver{}
+	_ driver.DriverWithAutoInc = mysqlDriver{}
+)
+
 func (driver mysqlDriver) ExtractTableNames(db *sql.DB) (tableNames []string, err error) {
 	rows, err := db.Query("SHOW TABLES")
 	if err != nil {
@@ -44,6 +49,35 @@ func (driver mysqlDriver) ExtractColumns(db *sql.DB, tableName string) (columnNa
 	}
 
 	return columnNames, columnTypes, nil
+}
+
+func (driver mysqlDriver) ExtractAutoIncColumn(db *sql.DB, tableName string) (columnName string, err error) {
+	dbName, err := extractDBName(db)
+	if err != nil {
+		return "", err
+	}
+
+	rows, err := db.Query(`
+	SELECT
+		COLUMN_NAME
+	FROM
+		INFORMATION_SCHEMA.COLUMNS
+	WHERE
+		TABLE_SCHEMA=? AND TABLE_NAME=? AND EXTRA LIKE ?
+	`, dbName, tableName, "%auto_increment%")
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err := rows.Scan(&columnName); err != nil {
+			return "", err
+		}
+		break
+	}
+
+	return columnName, nil
 }
 
 func (driver mysqlDriver) ExtractIndexNames(db *sql.DB, tableName string) (indexNames []string, err error) {

@@ -25,6 +25,14 @@ type Driver interface {
 	ExtractFK(db *sql.DB, tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error)
 }
 
+// DriverWithAutoInc is Driver that support single auto increment column sematic (e.g. MySQL)
+type DriverWithAutoInc interface {
+	Driver
+
+	// ExtractAutoIncColumn() extract the 'auto increament' column's name for a given table or "" if not found.
+	ExtractAutoIncColumn(db *sql.DB, tableName string) (columnName string, err error)
+}
+
 var (
 	drivers = map[string]Driver{}
 )
