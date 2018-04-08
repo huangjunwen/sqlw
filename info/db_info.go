@@ -47,7 +47,7 @@ type FKInfo struct {
 	refColumnNames []string
 }
 
-func ExtractDBInfo(drv driver.Driver, db *sql.DB, filter func(string) bool) (*DBInfo, error) {
+func ExtractDBInfo(db *sql.DB, drv driver.Driver, filter func(string) bool) (*DBInfo, error) {
 	if filter == nil {
 		// no filter
 		filter = func(string) bool { return true }
@@ -176,6 +176,10 @@ func ExtractDBInfo(drv driver.Driver, db *sql.DB, filter func(string) bool) (*DB
 
 }
 
+func (info *DBInfo) Valid() bool {
+	return info != nil
+}
+
 func (info *DBInfo) NumTable() int {
 	return len(info.tables)
 }
@@ -198,6 +202,10 @@ func (info *DBInfo) TableByNameM(tableName string) *TableInfo {
 		panic(fmt.Errorf("Table %+q not found", tableName))
 	}
 	return tableInfo
+}
+
+func (info *TableInfo) Valid() bool {
+	return info != nil
 }
 
 func (info *TableInfo) String() string {
@@ -284,8 +292,15 @@ func (info *TableInfo) Primary() *IndexInfo {
 	return info.primary
 }
 
+// AutoIncColumn() returns the single 'auto increment' column of the table.
+//
+// NOTE: If the database does not support such sematic, it always returns nil.
 func (info *TableInfo) AutoIncColumn() *ColumnInfo {
 	return info.autoIncColumn
+}
+
+func (info *ColumnInfo) Valid() bool {
+	return info != nil
 }
 
 func (info *ColumnInfo) String() string {
@@ -306,6 +321,10 @@ func (info *ColumnInfo) ColumnType() *sql.ColumnType {
 
 func (info *ColumnInfo) Pos() int {
 	return info.pos
+}
+
+func (info *IndexInfo) Valid() bool {
+	return info != nil
 }
 
 func (info *IndexInfo) String() string {
@@ -330,6 +349,10 @@ func (info *IndexInfo) IsPrimary() bool {
 
 func (info *IndexInfo) IsUnique() bool {
 	return info.isUnique
+}
+
+func (info *FKInfo) Valid() bool {
+	return info != nil
 }
 
 func (info *FKInfo) String() string {
