@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/beevik/etree"
+	"strconv"
 	"strings"
 )
 
@@ -98,18 +99,103 @@ func ExtractStmtInfo(db *sql.DB, dbInfo *DBInfo, elem *etree.Element) (*StmtInfo
 	default:
 	}
 
+	//TODO
+
 	return stmtInfo, nil
 
 }
 
 func (info *StmtInfo) processSelectStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *etree.Element) error {
 
+	// Construct text for query
+	stmtTextForQuery, wildcardTables, wildcardAliases, marker, err := constructStmtTextForQuery(dbInfo, stmtElem)
+	if err != nil {
+		return err
+	}
+
+	// Query database to obtain meta data
+	rows, err := db.Query(stmtTextForQuery)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	resultColumnNames, err := rows.Columns()
+	if err != nil {
+		return err
+	}
+
+	resultColumnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return err
+	}
+
+	// Wildcard mode variables.
+	inWildcard := false
+	wildcardTableInfo := (*TableInfo)(nil)
+	wildcardAlias := ""
+	wildcardColumnPos := 0
+
+	// For each result column.
+	for i, resultColumnName := range resultColumnNames {
+
+		isMarker, wildcardIdx, isBegin := parseMarker(resultColumnName, marker)
+		if isMarker {
+			// It's a marker column, toggle wildcard mode.
+			if !inWildcard {
+				if !isBegin {
+					panic(fmt.Errorf("Expect begin marker but got end marker"))
+				}
+
+				// Enter wildcard mode.
+				wildcardTableInfo = dbInfo.TableByNameM(wildcardTables[wildcardIdx])
+				wildcardAlias = wildcardAliases[wildcardIdx]
+				wildcardColumnPos = 0
+				inWildcard = true
+
+			} else {
+				if isBegin {
+					panic(fmt.Errorf("Expect end marker but got begin marker"))
+				}
+
+				// Exit wildcard mode.
+				wildcardTableInfo = nil
+				wildcardAlias = ""
+				wildcardColumnPos = 0
+				inWildcard = false
+			}
+
+			continue
+
+		}
+
+		// Normal column.
+		info.resultColumnNames = append(info.resultColumnNames, resultColumnName)
+		resultColumnType := resultColumnTypes[i]
+		info.resultColumnTypes = append(info.resultColumnTypes, resultColumnType)
+
+		if !inWildcard {
+			info.wildcardColumns = append(info.wildcardColumns, nil)
+			info.wildcardAlias = append(info.wildcardAlias, "")
+			continue
+		}
+
+		wildcardColumn := wildcardTableInfo.Column(wildcardColumnPos)
+		wildcardColumnPos += 1
+		if wildcardColumn.ColumnType().ScanType() != resultColumnType.ScanType() {
+			panic(fmt.Errorf("Wildcard expansion column type mismatch"))
+		}
+		info.wildcardColumns = append(info.wildcardColumns, wildcardColumn)
+		info.wildcardAlias = append(info.wildcardAlias, wildcardAlias)
+	}
+
 	return nil
 }
 
-func (info *StmtInfo) constructStmtTextForQuery(dbInfo *DBInfo, stmtElem *etree.Element) (stmtText string, wildcardTables []string, wildcardAliases []string, wildcardBeginMarkers []string, wildcardEndMarkers []string, err error) {
-	fragments := []string{}
+func constructStmtTextForQuery(dbInfo *DBInfo, stmtElem *etree.Element) (stmtText string, wildcardTables []string, wildcardAliases []string, wildcardMarker string, err error) {
+	wildcardMarker = genMarker()
 
+	fragments := []string{}
 	for _, t := range stmtElem.Child {
 		switch tok := t.(type) {
 		case *etree.CharData:
@@ -134,23 +220,84 @@ func (info *StmtInfo) constructStmtTextForQuery(dbInfo *DBInfo, stmtElem *etree.
 				// Maybe has alias
 				wildcardAlias := tok.SelectAttrValue("as", "")
 
-				// Generate a pair of unique marker
-				wildcardBeginMarker, wildcardEndMarker := genMarkerPair()
+				// Use alias first
+				prefix := wildcardAlias
+				if prefix == "" {
+					prefix = tableInfo.TableName()
+				}
 
-				// TODO TODO TODO
+				// Store wildcard info.
+				wildcardTables = append(wildcardTables, wildcardTable)
+				wildcardAliases = append(wildcardAliases, wildcardAlias)
+				wildcardIdx := len(wildcardTables) - 1
+
+				// Add beign marker then columns then end marker.
+				fragments = append(fragments, fmt.Sprintf("1 AS %s, ", fmtBeginMarker(wildcardMarker, wildcardIdx)))
+				for i := 0; i < tableInfo.NumColumn(); i++ {
+					// XXX: object identifier quote here?
+					fragments = append(fragments, fmt.Sprintf("%s.%s, ", prefix, tableInfo.Column(i).ColumnName()))
+				}
+				fragments = append(fragments, fmt.Sprintf("1 AS %s", fmtEndMarker(wildcardMarker, wildcardIdx)))
 
 			case "replace":
+				// Use inner text for query
 				fragments = append(fragments, tok.Text())
+
 			default:
-				return fmt.Errorf("Unknown processor <%q>", tok.Tag)
+				err = fmt.Errorf("Unknown processor <%q>", tok.Tag)
+				return
 
 			}
 
 		default:
 			// ignore
 		}
+
 	}
 
+	return
+}
+
+func genMarker() string {
+	buf := make([]byte, 8)
+	if _, err := rand.Read(buf); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(buf)
+}
+
+func fmtBeginMarker(marker string, idx int) string {
+	return fmt.Sprintf("%s_%d_b", marker, idx)
+}
+
+func fmtEndMarker(marker string, idx int) string {
+	return fmt.Sprintf("%s_%d_e", marker, idx)
+}
+
+func parseMarker(s, marker string) (isMarker bool, idx int, begin bool) {
+	parts := strings.Split(s, "_")
+	if len(parts) != 3 || parts[0] != marker {
+		return
+	}
+
+	// Check idx part.
+	i, err := strconv.Atoi(parts[1])
+	if err != nil {
+		panic(fmt.Errorf("Invalid marker format %+q %+q", s, marker))
+	}
+
+	// Check suffix part.
+	switch parts[2] {
+	case "b", "e":
+	default:
+		panic(fmt.Errorf("Invalid marker format %+q %+q", s, marker))
+	}
+
+	// OK
+	isMarker = true
+	idx = i
+	begin = parts[2] == "b"
+	return
 }
 
 func (info *StmtInfo) Valid() bool {
@@ -203,13 +350,4 @@ func (info *StmtInfo) WildcardColumn(i int) *ColumnInfo {
 
 func (info *StmtInfo) WildcardAlias(i int) string {
 	return info.wildcardAlias[i]
-}
-
-func genMarkerPair() (beginMarker, endMarker string) {
-	buf := make([]byte, 8)
-	if _, err := rand.Read(buf); err != nil {
-		panic(err)
-	}
-	marker := hex.EncodeToString(buf)
-	return fmt.Sprintf("b_%s", marker), fmt.Sprintf("e_%s", marker)
 }
