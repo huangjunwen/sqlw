@@ -108,13 +108,13 @@ func ExtractStmtInfo(db *sql.DB, dbInfo *DBInfo, elem *etree.Element) (*StmtInfo
 func (info *StmtInfo) processSelectStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *etree.Element) error {
 
 	// Construct text for query
-	stmtTextForQuery, wildcardTables, wildcardAliases, marker, err := constructStmtTextForQuery(dbInfo, stmtElem)
+	stmtText4Query, wcTableNames, wcAliases, wcMarker, err := constructStmtText4Query(dbInfo, stmtElem)
 	if err != nil {
 		return err
 	}
 
 	// Query database to obtain meta data
-	rows, err := db.Query(stmtTextForQuery)
+	rows, err := db.Query(stmtText4Query)
 	if err != nil {
 		return err
 	}
@@ -131,27 +131,27 @@ func (info *StmtInfo) processSelectStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *et
 	}
 
 	// Wildcard mode variables.
-	inWildcard := false
-	wildcardTableInfo := (*TableInfo)(nil)
-	wildcardAlias := ""
-	wildcardColumnPos := 0
+	inWc := false
+	wcTableInfo := (*TableInfo)(nil)
+	wcAlias := ""
+	wcColumnPos := 0
 
 	// For each result column.
 	for i, resultColumnName := range resultColumnNames {
 
-		isMarker, wildcardIdx, isBegin := parseMarker(resultColumnName, marker)
+		isMarker, wcIdx, isBegin := parseMarker(resultColumnName, wcMarker)
 		if isMarker {
 			// It's a marker column, toggle wildcard mode.
-			if !inWildcard {
+			if !inWc {
 				if !isBegin {
 					panic(fmt.Errorf("Expect begin marker but got end marker"))
 				}
 
 				// Enter wildcard mode.
-				wildcardTableInfo = dbInfo.TableByNameM(wildcardTables[wildcardIdx])
-				wildcardAlias = wildcardAliases[wildcardIdx]
-				wildcardColumnPos = 0
-				inWildcard = true
+				wcTableInfo = dbInfo.TableByNameM(wcTableNames[wcIdx])
+				wcAlias = wcAliases[wcIdx]
+				wcColumnPos = 0
+				inWc = true
 
 			} else {
 				if isBegin {
@@ -159,10 +159,10 @@ func (info *StmtInfo) processSelectStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *et
 				}
 
 				// Exit wildcard mode.
-				wildcardTableInfo = nil
-				wildcardAlias = ""
-				wildcardColumnPos = 0
-				inWildcard = false
+				wcTableInfo = nil
+				wcAlias = ""
+				wcColumnPos = 0
+				inWc = false
 			}
 
 			continue
@@ -174,70 +174,86 @@ func (info *StmtInfo) processSelectStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *et
 		resultColumnType := resultColumnTypes[i]
 		info.resultColumnTypes = append(info.resultColumnTypes, resultColumnType)
 
-		if !inWildcard {
+		if !inWc {
+			// Not in wildcard mode.
 			info.wildcardColumns = append(info.wildcardColumns, nil)
 			info.wildcardAlias = append(info.wildcardAlias, "")
 			continue
 		}
 
-		wildcardColumn := wildcardTableInfo.Column(wildcardColumnPos)
-		wildcardColumnPos += 1
+		wildcardColumn := wcTableInfo.Column(wcColumnPos)
+		wcColumnPos += 1
 		if wildcardColumn.ColumnType().ScanType() != resultColumnType.ScanType() {
 			panic(fmt.Errorf("Wildcard expansion column type mismatch"))
 		}
 		info.wildcardColumns = append(info.wildcardColumns, wildcardColumn)
-		info.wildcardAlias = append(info.wildcardAlias, wildcardAlias)
+		info.wildcardAlias = append(info.wildcardAlias, wcAlias)
 	}
 
 	return nil
 }
 
-func constructStmtTextForQuery(dbInfo *DBInfo, stmtElem *etree.Element) (stmtText string, wildcardTables []string, wildcardAliases []string, wildcardMarker string, err error) {
-	wildcardMarker = genMarker()
+// constructStmtText4Query build statement text for querying against database to get result columns info.
+// This function also expands wildcard and returns wildcard info, for example:
+//
+// 	<stmt>
+// 	  SELECT <wildcard table="user" as="u" /> FROM user AS u
+// 	</stmt>
+//
+// Should return something like:
+//
+// 	"SELECT 1 AS yaePovo3_0_b, u.id, u.name, ..., 1 AS yaePovo3_0_e FROM user AS u"
+//
+// the wildcard xml expands to columns of the user table with markers before/after these columns to detect wildcard columns' postion.
+func constructStmtText4Query(dbInfo *DBInfo, stmtElem *etree.Element) (stmtText string, wcTableNames []string, wcAliases []string, wcMarker string, err error) {
 
+	wcMarker = genMarker()
 	fragments := []string{}
+
 	for _, t := range stmtElem.Child {
 		switch tok := t.(type) {
 		case *etree.CharData:
+			// Append char data directly.
 			fragments = append(fragments, tok.Data)
 
 		case *etree.Element:
+			// We support <wildcard> and <replace>
 			switch tok.Tag {
 			case "wildcard":
 				// Get wildcard table and its info
-				wildcardTable := tok.SelectAttrValue("table", "")
-				if wildcardTable == "" {
+				wcTableName := tok.SelectAttrValue("table", "")
+				if wcTableName == "" {
 					err = fmt.Errorf("Missing attribute 'table' in <wildcard>")
 					return
 				}
 
-				tableInfo, found := dbInfo.TableByName(wildcardTable)
+				wcTableInfo, found := dbInfo.TableByName(wcTableName)
 				if !found {
-					err = fmt.Errorf("Can't find table %+q", wildcardTable)
+					err = fmt.Errorf("Can't find table %+q", wcTableName)
 					return
 				}
 
 				// Maybe has alias
-				wildcardAlias := tok.SelectAttrValue("as", "")
+				wcAlias := tok.SelectAttrValue("as", "")
 
 				// Use alias first
-				prefix := wildcardAlias
+				prefix := wcAlias
 				if prefix == "" {
-					prefix = tableInfo.TableName()
+					prefix = wcTableName
 				}
 
 				// Store wildcard info.
-				wildcardTables = append(wildcardTables, wildcardTable)
-				wildcardAliases = append(wildcardAliases, wildcardAlias)
-				wildcardIdx := len(wildcardTables) - 1
+				wcTableNames = append(wcTableNames, wcTableName)
+				wcAliases = append(wcAliases, wcAlias)
+				wcIdx := len(wcTableNames) - 1
 
 				// Add beign marker then columns then end marker.
-				fragments = append(fragments, fmt.Sprintf("1 AS %s, ", fmtBeginMarker(wildcardMarker, wildcardIdx)))
-				for i := 0; i < tableInfo.NumColumn(); i++ {
+				fragments = append(fragments, fmt.Sprintf("1 AS %s, ", fmtBeginMarker(wcMarker, wcIdx)))
+				for i := 0; i < wcTableInfo.NumColumn(); i++ {
 					// XXX: object identifier quote here?
-					fragments = append(fragments, fmt.Sprintf("%s.%s, ", prefix, tableInfo.Column(i).ColumnName()))
+					fragments = append(fragments, fmt.Sprintf("%s.%s, ", prefix, wcTableInfo.Column(i).ColumnName()))
 				}
-				fragments = append(fragments, fmt.Sprintf("1 AS %s", fmtEndMarker(wildcardMarker, wildcardIdx)))
+				fragments = append(fragments, fmt.Sprintf("1 AS %s", fmtEndMarker(wcMarker, wcIdx)))
 
 			case "replace":
 				// Use inner text for query
@@ -255,6 +271,7 @@ func constructStmtTextForQuery(dbInfo *DBInfo, stmtElem *etree.Element) (stmtTex
 
 	}
 
+	stmtText = strings.Join(fragments, "")
 	return
 }
 
@@ -299,6 +316,75 @@ func parseMarker(s, marker string) (isMarker bool, idx int, begin bool) {
 	begin = parts[2] == "b"
 	return
 }
+
+/*
+func constructStmtText(dbInfo *DBInfo, stmtElem *etree.Element) (stmtText string, err error) {
+
+	fragments := []string{}
+
+	for _, t := range stmtElem.Child {
+
+		switch tok := t.(type) {
+		case *etree.CharData:
+			// Append char data directly.
+			fragments = append(fragments, tok.Data)
+
+		case *etree.Element:
+			// We support <wildcard> and <replace>
+			switch tok.Tag {
+			case "wildcard":
+				// Get wildcard table and its info
+				wcTableName := tok.SelectAttrValue("table", "")
+				if wcTableName == "" {
+					err = fmt.Errorf("Missing attribute 'table' in <wildcard>")
+					return
+				}
+
+				wcTableInfo, found := dbInfo.TableByName(wcTableName)
+				if !found {
+					err = fmt.Errorf("Can't find table %+q", wcTableName)
+					return
+				}
+
+				// Maybe has alias
+				wcAlias := tok.SelectAttrValue("as", "")
+
+				// Use alias first
+				prefix := wcAlias
+				if prefix == "" {
+					prefix = wcTableName
+				}
+
+				// Add columns.
+				for i := 0; i < wcTableInfo.NumColumn(); i++ {
+					if i != 0 {
+						fragments = append(fragments, ", ")
+					}
+					// XXX: object identifier quote here?
+					fragments = append(fragments, fmt.Sprintf("%s.%s", prefix, wcTableInfo.Column(i).ColumnName()))
+				}
+
+			case "replace":
+				// TODO
+				// Use inner text for query
+				fragments = append(fragments, tok.Text())
+
+			default:
+				err = fmt.Errorf("Unknown processor <%q>", tok.Tag)
+				return
+
+			}
+
+		default:
+			// ignore
+
+		}
+	}
+
+	stmtText = strings.Join(fragments, "")
+	return
+}
+*/
 
 func (info *StmtInfo) Valid() bool {
 	return info != nil
