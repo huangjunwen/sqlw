@@ -22,7 +22,7 @@ type StmtInfo struct {
 	resultColumnNames []string
 	resultColumnTypes []*sql.ColumnType
 	wildcardColumns   []*ColumnInfo
-	wildcardAlias     []string
+	wildcardAliases   []string
 }
 
 var (
@@ -177,7 +177,7 @@ func (info *StmtInfo) processSelectStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *et
 		if !inWc {
 			// Not in wildcard mode.
 			info.wildcardColumns = append(info.wildcardColumns, nil)
-			info.wildcardAlias = append(info.wildcardAlias, "")
+			info.wildcardAliases = append(info.wildcardAliases, "")
 			continue
 		}
 
@@ -187,7 +187,7 @@ func (info *StmtInfo) processSelectStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *et
 			panic(fmt.Errorf("Wildcard expansion column type mismatch"))
 		}
 		info.wildcardColumns = append(info.wildcardColumns, wildcardColumn)
-		info.wildcardAlias = append(info.wildcardAlias, wcAlias)
+		info.wildcardAliases = append(info.wildcardAliases, wcAlias)
 	}
 
 	return nil
@@ -435,5 +435,5 @@ func (info *StmtInfo) WildcardColumn(i int) *ColumnInfo {
 }
 
 func (info *StmtInfo) WildcardAlias(i int) string {
-	return info.wildcardAlias[i]
+	return info.wildcardAliases[i]
 }
