@@ -209,6 +209,9 @@ func (info *TableInfo) Valid() bool {
 }
 
 func (info *TableInfo) String() string {
+	if info == nil {
+		return "<nil table>"
+	}
 	return info.tableName
 }
 
@@ -304,6 +307,9 @@ func (info *ColumnInfo) Valid() bool {
 }
 
 func (info *ColumnInfo) String() string {
+	if info == nil {
+		return "<nil column>"
+	}
 	return info.columnName
 }
 
@@ -328,6 +334,9 @@ func (info *IndexInfo) Valid() bool {
 }
 
 func (info *IndexInfo) String() string {
+	if info == nil {
+		return "<nil index>"
+	}
 	return info.indexName
 }
 
@@ -356,6 +365,9 @@ func (info *FKInfo) Valid() bool {
 }
 
 func (info *FKInfo) String() string {
+	if info == nil {
+		return "<nil fk>"
+	}
 	return info.fkName
 }
 
