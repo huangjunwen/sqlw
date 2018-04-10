@@ -73,7 +73,7 @@ func (p *charDataProcessor) GenStmtFragments(state *stmtProcessState) error {
 }
 
 func (p *charDataProcessor) GenStmtFragments4Query(state *stmtProcessState) error {
-	state.AddFragments([]string{p.charData})
+	state.AddFragments4Query([]string{p.charData})
 	return nil
 }
 
@@ -147,12 +147,12 @@ func (p *replaceProcessor) Initialize(db *sql.DB, dbInfo *DBInfo, tok etree.Toke
 }
 
 func (p *replaceProcessor) GenStmtFragments(state *stmtProcessState) error {
-	state.AddFragments([]string{p.origin})
+	state.AddFragments([]string{p.replace})
 	return nil
 }
 
 func (p *replaceProcessor) GenStmtFragments4Query(state *stmtProcessState) error {
-	state.AddFragments4Query([]string{p.replace})
+	state.AddFragments4Query([]string{p.origin})
 	return nil
 }
 
