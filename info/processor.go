@@ -88,9 +88,9 @@ func (p *wildcardProcessor) Initialize(db *sql.DB, dbInfo *DBInfo, tok etree.Tok
 
 	wildcardAlias := elem.SelectAttrValue("as", "")
 
-	wildcardTableInfo, found := dbInfo.TableByName(p.wildcardTableName)
+	wildcardTableInfo, found := dbInfo.TableByName(wildcardTableName)
 	if !found {
-		return fmt.Errorf("Table %+q not found", p.wildcardTableName)
+		return fmt.Errorf("Table %+q not found", wildcardTableName)
 	}
 
 	p.wildcardTableName = wildcardTableName
@@ -167,9 +167,9 @@ func (state *stmtProcessState) AddFragments4Query(fragments []string) {
 func (state *stmtProcessState) AddWildcardFragments4Query(wildcardTableName, wildcardAlias string, fragments []string) {
 
 	wcIdx := len(state.wildcardTableNames)
-	state.stmtFragments4Query = append(state.stmtFragments4Query, fmt.Sprintf("1 AS %s_%s_b, ", state.wildcardMarker, wcIdx))
+	state.stmtFragments4Query = append(state.stmtFragments4Query, fmt.Sprintf("1 AS %s_%d_b, ", state.wildcardMarker, wcIdx))
 	state.stmtFragments4Query = append(state.stmtFragments4Query, fragments...)
-	state.stmtFragments4Query = append(state.stmtFragments4Query, fmt.Sprintf(", 1 AS %s_%s_e", state.wildcardMarker, wcIdx))
+	state.stmtFragments4Query = append(state.stmtFragments4Query, fmt.Sprintf(", 1 AS %s_%d_e", state.wildcardMarker, wcIdx))
 
 	state.wildcardTableNames = append(state.wildcardTableNames, wildcardTableName)
 	state.wildcardAliases = append(state.wildcardAliases, wildcardAlias)
@@ -214,7 +214,7 @@ func (state *stmtProcessState) process(db *sql.DB, dbInfo *DBInfo, stmtElem *etr
 	if _, err := rand.Read(buf); err != nil {
 		panic(err)
 	}
-	state.wildcardMarker = hex.EncodeToString(buf)
+	state.wildcardMarker = "wc" + hex.EncodeToString(buf)
 	state.stmtFragments4Query = nil
 	state.wildcardTableNames = nil
 	state.wildcardAliases = nil
