@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/beevik/etree"
+	"strconv"
+	"strings"
 )
 
 type stmtProcessor interface {
@@ -25,7 +27,7 @@ type charDataProcessor struct {
 
 type wildcardProcessor struct {
 	wildcardTableName string
-	WildcardAlias     string
+	wildcardAlias     string
 	wildcardTableInfo *TableInfo
 }
 
@@ -35,10 +37,7 @@ type replaceProcessor struct {
 }
 
 type stmtProcessState struct {
-	// Fragments of the statement text.
-	stmtFragments []string
-
-	// --- The following are for SELECT only.
+	// --- Query phase variables.
 
 	// Position marker for wildcard expansion.
 	wildcardMarker string
@@ -49,7 +48,19 @@ type stmtProcessState struct {
 	// Wildcard table names and (optionally) their aliases.
 	wildcardTableNames []string
 	wildcardAliases    []string
+
+	// --- Statement text phase variables.
+
+	// Fragments of the statement text.
+	stmtFragments []string
 }
+
+var (
+	processorFactory = map[string]func() stmtProcessor{
+		"wildcard": func() stmtProcessor { return &wildcardProcessor{} },
+		"replace":  func() stmtProcessor { return &replaceProcessor{} },
+	}
+)
 
 func (p *charDataProcessor) Initialize(db *sql.DB, dbInfo *DBInfo, tok etree.Token) error {
 	p.charData = tok.(*etree.CharData).Data
@@ -62,43 +73,87 @@ func (p *charDataProcessor) GenStmtFragments(state *stmtProcessState) error {
 }
 
 func (p *charDataProcessor) GenStmtFragments4Query(state *stmtProcessState) error {
-	state.AddFragments4Query([]string{p.charData})
+	state.AddFragments([]string{p.charData})
 	return nil
 }
 
 func (p *wildcardProcessor) Initialize(db *sql.DB, dbInfo *DBInfo, tok etree.Token) error {
-	panic("")
+
+	elem := tok.(*etree.Element)
+
+	wildcardTableName := elem.SelectAttrValue("table", "")
+	if wildcardTableName == "" {
+		return fmt.Errorf("Missing 'table' attribute in <wildcard>")
+	}
+
+	wildcardAlias := elem.SelectAttrValue("as", "")
+
+	wildcardTableInfo, found := dbInfo.TableByName(p.wildcardTableName)
+	if !found {
+		return fmt.Errorf("Table %+q not found", p.wildcardTableName)
+	}
+
+	p.wildcardTableName = wildcardTableName
+	p.wildcardAlias = wildcardAlias
+	p.wildcardTableInfo = wildcardTableInfo
+	return nil
+
+}
+
+func (p *wildcardProcessor) expansion() []string {
+
+	prefix := p.wildcardAlias
+	if prefix == "" {
+		prefix = p.wildcardTableName
+	}
+
+	ret := []string{}
+	for i := 0; i < p.wildcardTableInfo.NumColumn(); i++ {
+		if i != 0 {
+			ret = append(ret, ", ")
+		}
+		column := p.wildcardTableInfo.Column(i)
+		ret = append(ret, fmt.Sprintf("%s.%s", prefix, column.ColumnName()))
+	}
+
+	return ret
+
 }
 
 func (p *wildcardProcessor) GenStmtFragments(state *stmtProcessState) error {
-	panic("")
+	state.AddFragments(p.expansion())
+	return nil
 }
 
 func (p *wildcardProcessor) GenStmtFragments4Query(state *stmtProcessState) error {
-	panic("")
+	state.AddWildcardFragments4Query(p.wildcardTableName, p.wildcardAlias, p.expansion())
+	return nil
 }
 
 func (p *replaceProcessor) Initialize(db *sql.DB, dbInfo *DBInfo, tok etree.Token) error {
-	panic("")
+
+	elem := tok.(*etree.Element)
+
+	replace := elem.SelectAttrValue("with", "")
+	if replace == "" {
+		return fmt.Errorf("Missing 'with' attribute in <replace>")
+	}
+
+	p.replace = replace
+	p.origin = elem.Text()
+
+	return nil
+
 }
 
 func (p *replaceProcessor) GenStmtFragments(state *stmtProcessState) error {
-	panic("")
+	state.AddFragments([]string{p.origin})
+	return nil
 }
 
 func (p *replaceProcessor) GenStmtFragments4Query(state *stmtProcessState) error {
-	panic("")
-}
-
-func newStmtProcessState() *stmtProcessState {
-	buf := make([]byte, 8)
-	if _, err := rand.Read(buf); err != nil {
-		panic(err)
-	}
-	return &stmtProcessState{
-		// Generate a random marker.
-		wildcardMarker: hex.EncodeToString(buf),
-	}
+	state.AddFragments4Query([]string{p.replace})
+	return nil
 }
 
 func (state *stmtProcessState) AddFragments(fragments []string) {
@@ -110,6 +165,7 @@ func (state *stmtProcessState) AddFragments4Query(fragments []string) {
 }
 
 func (state *stmtProcessState) AddWildcardFragments4Query(wildcardTableName, wildcardAlias string, fragments []string) {
+
 	wcIdx := len(state.wildcardTableNames)
 	state.stmtFragments4Query = append(state.stmtFragments4Query, fmt.Sprintf("1 AS %s_%s_b, ", state.wildcardMarker, wcIdx))
 	state.stmtFragments4Query = append(state.stmtFragments4Query, fragments...)
@@ -117,20 +173,60 @@ func (state *stmtProcessState) AddWildcardFragments4Query(wildcardTableName, wil
 
 	state.wildcardTableNames = append(state.wildcardTableNames, wildcardTableName)
 	state.wildcardAliases = append(state.wildcardAliases, wildcardAlias)
+
 }
 
-var (
-	processorFactory = map[string]func() stmtProcessor{}
-)
+func (state *stmtProcessState) parseWildcardMarker(name string) (isMarker bool, isBegin bool, wildcardIdx int) {
 
-func registProcessorFactory(factory func() stmtProcessor, tags ...string) {
-	for _, tag := range tags {
-		processorFactory[tag] = factory
+	parts := strings.Split(name, "_")
+	if len(parts) != 3 || parts[0] != state.wildcardMarker {
+		return false, false, 0
 	}
+
+	// Check idx part.
+	i, err := strconv.Atoi(parts[1])
+	if err != nil {
+		panic(fmt.Errorf("Invalid marker format %+q %+q", name, state.wildcardMarker))
+	}
+
+	// Check suffix part.
+	switch parts[2] {
+	case "b", "e":
+	default:
+		panic(fmt.Errorf("Invalid marker format %+q %+q", name, state.wildcardMarker))
+	}
+
+	return true, parts[2] == "b", i
 }
 
-func processStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *etree.Element, stmtInfo *StmtInfo) error {
+func (state *stmtProcessState) stmtText4Query() string {
+	return strings.Join(state.stmtFragments4Query, "")
+}
 
+func (state *stmtProcessState) stmtText() string {
+	return strings.Join(state.stmtFragments, "")
+}
+
+func (state *stmtProcessState) process(db *sql.DB, dbInfo *DBInfo, stmtElem *etree.Element, stmtInfo *StmtInfo) error {
+
+	// Reset
+	buf := make([]byte, 8)
+	if _, err := rand.Read(buf); err != nil {
+		panic(err)
+	}
+	state.wildcardMarker = hex.EncodeToString(buf)
+	state.stmtFragments4Query = nil
+	state.wildcardTableNames = nil
+	state.wildcardAliases = nil
+	state.stmtFragments = nil
+
+	// Clear
+	stmtInfo.resultColumnNames = nil
+	stmtInfo.resultColumnTypes = nil
+	stmtInfo.wildcardColumns = nil
+	stmtInfo.wildcardAliases = nil
+
+	// Convert xml to a list of stmtProcessor.
 	ps := []stmtProcessor{}
 
 	for _, t := range stmtElem.Child {
@@ -159,9 +255,99 @@ func processStmt(db *sql.DB, dbInfo *DBInfo, stmtElem *etree.Element, stmtInfo *
 
 	}
 
-	//state := newStmtProcessState()
+	if stmtInfo.StmtType() == "SELECT" {
 
-	// TODO
+		// Construct statement text for query.
+		for _, p := range ps {
+			if err := p.GenStmtFragments4Query(state); err != nil {
+				return err
+			}
+		}
+		stmtText4Query := state.stmtText4Query()
+
+		// Query!
+		rows, err := db.Query(stmtText4Query)
+		if err != nil {
+			return err
+		}
+
+		// Extract result column names and types.
+		resultColumnNames, err := rows.Columns()
+		if err != nil {
+			return err
+		}
+
+		resultColumnTypes, err := rows.ColumnTypes()
+		if err != nil {
+			return err
+		}
+
+		// Wildcard mode variables.
+		inWc := false
+		wcTableInfo := (*TableInfo)(nil)
+		wcAlias := ""
+		wcColumnPos := 0
+
+		for i, resultColumnName := range resultColumnNames {
+
+			isMarker, isBegin, wildcardIdx := state.parseWildcardMarker(resultColumnName)
+			if isMarker {
+				// It's a marker column, toggle wildcard mode.
+				if !inWc {
+					if !isBegin {
+						panic(fmt.Errorf("Expect begin marker but got end marker"))
+					}
+
+					// Enter wildcard mode.
+					wcTableInfo = dbInfo.TableByNameM(state.wildcardTableNames[wildcardIdx])
+					wcAlias = state.wildcardAliases[wildcardIdx]
+					wcColumnPos = 0
+					inWc = true
+
+				} else {
+					if isBegin {
+						panic(fmt.Errorf("Expect end marker but got begin marker"))
+					}
+
+					// Exit wildcard mode.
+					wcTableInfo = nil
+					wcAlias = ""
+					wcColumnPos = 0
+					inWc = false
+				}
+
+				continue
+			}
+
+			stmtInfo.resultColumnNames = append(stmtInfo.resultColumnNames, resultColumnName)
+			resultColumnType := resultColumnTypes[i]
+			stmtInfo.resultColumnTypes = append(stmtInfo.resultColumnTypes, resultColumnType)
+
+			if !inWc {
+				// Not in wildcard mode.
+				stmtInfo.wildcardColumns = append(stmtInfo.wildcardColumns, nil)
+				stmtInfo.wildcardAliases = append(stmtInfo.wildcardAliases, "")
+				continue
+			}
+
+			wildcardColumn := wcTableInfo.Column(wcColumnPos)
+			wcColumnPos += 1
+			if wildcardColumn.ColumnType().ScanType() != resultColumnType.ScanType() {
+				panic(fmt.Errorf("Wildcard expansion column type mismatch"))
+			}
+			stmtInfo.wildcardColumns = append(stmtInfo.wildcardColumns, wildcardColumn)
+			stmtInfo.wildcardAliases = append(stmtInfo.wildcardAliases, wcAlias)
+		}
+
+	}
+
+	// Construct statement text.
+	for _, p := range ps {
+		if err := p.GenStmtFragments(state); err != nil {
+			return err
+		}
+	}
+	stmtInfo.stmtText = state.stmtText()
 
 	return nil
 }
