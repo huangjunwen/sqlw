@@ -1,4 +1,4 @@
-package ctx
+package dbctx
 
 import (
 	"database/sql"
@@ -6,7 +6,7 @@ import (
 	"github.com/huangjunwen/sqlwrapper/driver"
 )
 
-type Ctx struct {
+type DBContext struct {
 	driverName     string
 	dataSourceName string
 	db             *sql.DB
@@ -14,7 +14,7 @@ type Ctx struct {
 	dbInfo         *DBInfo
 }
 
-func NewCtx(driverName, dataSourceName string) (*Ctx, error) {
+func NewDBContext(driverName, dataSourceName string) (*DBContext, error) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func NewCtx(driverName, dataSourceName string) (*Ctx, error) {
 		return nil, err
 	}
 
-	return &Ctx{
+	return &DBContext{
 		driverName:     driverName,
 		dataSourceName: dataSourceName,
 		drv:            drv,
@@ -40,22 +40,22 @@ func NewCtx(driverName, dataSourceName string) (*Ctx, error) {
 
 }
 
-func (ctx *Ctx) DriverName() string {
+func (ctx *DBContext) DriverName() string {
 	return ctx.driverName
 }
 
-func (ctx *Ctx) DataSourceName() string {
+func (ctx *DBContext) DataSourceName() string {
 	return ctx.dataSourceName
 }
 
-func (ctx *Ctx) DB() *sql.DB {
+func (ctx *DBContext) DB() *sql.DB {
 	return ctx.db
 }
 
-func (ctx *Ctx) Drv() driver.Driver {
+func (ctx *DBContext) Drv() driver.Driver {
 	return ctx.drv
 }
 
-func (ctx *Ctx) DBInfo() *DBInfo {
+func (ctx *DBContext) DBInfo() *DBInfo {
 	return ctx.dbInfo
 }
