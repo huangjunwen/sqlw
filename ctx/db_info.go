@@ -1,4 +1,4 @@
-package info
+package ctx
 
 import (
 	"database/sql"
@@ -47,11 +47,7 @@ type FKInfo struct {
 	refColumnNames []string
 }
 
-func ExtractDBInfo(db *sql.DB, drv driver.Driver, filter func(string) bool) (*DBInfo, error) {
-	if filter == nil {
-		// no filter
-		filter = func(string) bool { return true }
-	}
+func newDBInfo(db *sql.DB, drv driver.Driver) (*DBInfo, error) {
 
 	_, supportAutoInc := drv.(driver.DriverWithAutoInc)
 
@@ -65,9 +61,6 @@ func ExtractDBInfo(db *sql.DB, drv driver.Driver, filter func(string) bool) (*DB
 	}
 
 	for _, tableName := range tableNames {
-		if !filter(tableName) {
-			continue
-		}
 
 		tableInfo := &TableInfo{
 			db:          dbInfo,
@@ -386,7 +379,7 @@ func (info *FKInfo) Columns() []*ColumnInfo {
 func (info *FKInfo) RefTable() *TableInfo {
 	refTable, found := info.table.db.TableByName(info.refTableName)
 	if !found {
-		panic(fmt.Errorf("Can't find ref table %+q, maybe it's filter out?", info.refTableName))
+		panic(fmt.Errorf("Can't find ref table %+q", info.refTableName))
 	}
 	return refTable
 }
