@@ -53,8 +53,8 @@ func (d *textDirective) ProcessQueryResult(resultColumnNames *[]string, resultCo
 	return nil
 }
 
-// RegistDirective() regist directive factories.
-func RegistDirective(factory func() StmtDirective, tags ...string) {
+// RegistStmtDirectiveFactory() regist directive factories.
+func RegistStmtDirectiveFactory(factory func() StmtDirective, tags ...string) {
 	for _, tag := range tags {
 		directiveFactories[tag] = factory
 	}

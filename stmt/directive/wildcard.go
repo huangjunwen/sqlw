@@ -242,7 +242,7 @@ func (info *WildcardInfo) Valid() bool {
 }
 
 func init() {
-	stmt.RegistDirective(func() stmt.StmtDirective {
+	stmt.RegistStmtDirectiveFactory(func() stmt.StmtDirective {
 		return &wildcardDirective{}
 	}, "wildcard")
 }

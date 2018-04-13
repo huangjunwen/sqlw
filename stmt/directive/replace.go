@@ -37,7 +37,7 @@ func (d *replaceDirective) ProcessQueryResult(resultColumnNames *[]string, resul
 }
 
 func init() {
-	stmt.RegistDirective(func() stmt.StmtDirective {
+	stmt.RegistStmtDirectiveFactory(func() stmt.StmtDirective {
 		return &replaceDirective{}
 	}, "replace")
 }
