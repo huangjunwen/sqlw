@@ -105,7 +105,8 @@ func newWildcardInfo() *WildcardInfo {
 	}
 	marker := hex.EncodeToString(buf)
 	return &WildcardInfo{
-		marker: marker,
+		// NOTE: Identiy must starts with letter so add a prefix.
+		marker: "wc" + marker,
 	}
 }
 
