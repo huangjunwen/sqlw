@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlwrapper/dbctx"
-	"github.com/huangjunwen/sqlwrapper/stmt"
+	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/stmt"
 )
 
 type replaceDirective struct {

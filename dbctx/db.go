@@ -3,7 +3,7 @@ package dbctx
 import (
 	"database/sql"
 	"fmt"
-	"github.com/huangjunwen/sqlwrapper/driver"
+	"github.com/huangjunwen/sqlw/driver"
 )
 
 type DBInfo struct {

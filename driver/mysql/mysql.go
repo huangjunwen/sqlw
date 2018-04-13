@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/huangjunwen/sqlwrapper/driver"
+	"github.com/huangjunwen/sqlw/driver"
 )
 
 type mysqlDriver struct{}

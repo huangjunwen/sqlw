@@ -3,7 +3,7 @@ package stmt
 import (
 	"database/sql"
 	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlwrapper/dbctx"
+	"github.com/huangjunwen/sqlw/dbctx"
 )
 
 // StmtDirective represents a fragment of a statement.
