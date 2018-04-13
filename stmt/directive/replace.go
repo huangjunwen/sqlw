@@ -35,3 +35,9 @@ func (d *replaceDirective) GenerateQuery() (string, error) {
 func (d *replaceDirective) ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
 	return nil
 }
+
+func init() {
+	stmt.RegistDirective(func() stmt.StmtDirective {
+		return &replaceDirective{}
+	}, "replace")
+}

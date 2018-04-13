@@ -228,3 +228,9 @@ func ExtractWildcardInfo(stmt *stmt.StmtInfo) *WildcardInfo {
 	}
 	return nil
 }
+
+func init() {
+	stmt.RegistDirective(func() stmt.StmtDirective {
+		return &wildcardDirective{}
+	}, "wildcard")
+}
