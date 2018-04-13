@@ -35,6 +35,35 @@ type WildcardInfo struct {
 	resultProcessed bool
 }
 
+func (d *wildcardDirective) expansion() string {
+	prefix := d.tableAlias
+	if prefix == "" {
+		prefix = d.tableName
+	}
+
+	fragments := []string{}
+	for i := 0; i < d.table.NumColumn(); i++ {
+		if i != 0 {
+			fragments = append(fragments, ", ")
+		}
+		column := d.table.Column(i)
+		fragments = append(fragments, fmt.Sprintf("%s.%s", prefix, column.ColumnName()))
+	}
+	return strings.Join(fragments, "")
+
+}
+
+func (d *wildcardDirective) directiveLocals() *WildcardInfo {
+	// All wildcardDirective in a stmt share a same WildcardInfo.
+	locals := d.stmt.DirectiveLocals(wildcardDirectiveLocalsKey)
+	if locals != nil {
+		return locals.(*WildcardInfo)
+	}
+	ret := newWildcardInfo()
+	d.stmt.SetDirectiveLocals(wildcardDirectiveLocalsKey, ret)
+	return ret
+}
+
 func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *stmt.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
@@ -58,57 +87,15 @@ func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *stmt.StmtInfo
 }
 
 func (d *wildcardDirective) Generate() (string, error) {
-	fragments := []string{}
-	d.expansion(&fragments)
-	return strings.Join(fragments, ""), nil
+	return d.expansion(), nil
 }
 
 func (d *wildcardDirective) GenerateQuery() (string, error) {
-	// Get current statement's WildcardInfo
-	wildcard := d.directiveLocals()
-
-	// Store this directive in WildcardInfo
-	wildcard.directives = append(wildcard.directives, d)
-	idx := len(wildcard.directives) - 1
-
-	// Add begin/end markers around wildcard expansion.
-	fragments := []string{}
-	fragments = append(fragments, fmt.Sprintf("1 AS %s, ", wildcard.fmtMarker(idx, true)))
-	d.expansion(&fragments)
-	fragments = append(fragments, fmt.Sprintf(", 1 AS %s", wildcard.fmtMarker(idx, false)))
-
-	return strings.Join(fragments, ""), nil
+	return d.directiveLocals().generateQuery(d), nil
 }
 
 func (d *wildcardDirective) ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
 	return d.directiveLocals().processQueryResult(resultColumnNames, resultColumnTypes)
-}
-
-func (d *wildcardDirective) directiveLocals() *WildcardInfo {
-	// All wildcardDirective in a stmt shares a same WildcardInfo.
-	locals := d.stmt.DirectiveLocals(wildcardDirectiveLocalsKey)
-	if locals != nil {
-		return locals.(*WildcardInfo)
-	}
-	ret := newWildcardInfo()
-	d.stmt.SetDirectiveLocals(wildcardDirectiveLocalsKey, ret)
-	return ret
-}
-
-func (d *wildcardDirective) expansion(fragments *[]string) {
-	prefix := d.tableAlias
-	if prefix == "" {
-		prefix = d.tableName
-	}
-
-	for i := 0; i < d.table.NumColumn(); i++ {
-		if i != 0 {
-			*fragments = append(*fragments, ", ")
-		}
-		column := d.table.Column(i)
-		*fragments = append(*fragments, fmt.Sprintf("%s.%s", prefix, column.ColumnName()))
-	}
-
 }
 
 func newWildcardInfo() *WildcardInfo {
@@ -120,6 +107,15 @@ func newWildcardInfo() *WildcardInfo {
 	return &WildcardInfo{
 		marker: marker,
 	}
+}
+
+// ExtractWildcardInfo() extract wildcard information from a statement or nil if not exists.
+func ExtractWildcardInfo(stmt *stmt.StmtInfo) *WildcardInfo {
+	locals := stmt.DirectiveLocals(wildcardDirectiveLocalsKey)
+	if locals != nil {
+		return locals.(*WildcardInfo)
+	}
+	return nil
 }
 
 func (info *WildcardInfo) fmtMarker(idx int, isBegin bool) string {
@@ -148,6 +144,12 @@ func (info *WildcardInfo) parseMarker(s string) (isMarker bool, idx int, isBegin
 
 	return true, i, parts[2] == "b"
 
+}
+
+func (info *WildcardInfo) generateQuery(d *wildcardDirective) string {
+	info.directives = append(info.directives, d)
+	idx := len(info.directives) - 1
+	return fmt.Sprintf("1 AS %s, %s, 1 AS %s", info.fmtMarker(idx, true), d.expansion(), info.fmtMarker(idx, false))
 }
 
 func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
@@ -221,12 +223,22 @@ func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, result
 	return nil
 }
 
-func ExtractWildcardInfo(stmt *stmt.StmtInfo) *WildcardInfo {
-	locals := stmt.DirectiveLocals(wildcardDirectiveLocalsKey)
-	if locals != nil {
-		return locals.(*WildcardInfo)
+func (info *WildcardInfo) WildcardColumn(i int) *dbctx.ColumnInfo {
+	if info == nil {
+		return nil
 	}
-	return nil
+	return info.wildcardColumns[i]
+}
+
+func (info *WildcardInfo) WildcardAlias(i int) string {
+	if info == nil {
+		return ""
+	}
+	return info.wildcardAliases[i]
+}
+
+func (info *WildcardInfo) Valid() bool {
+	return info != nil
 }
 
 func init() {
