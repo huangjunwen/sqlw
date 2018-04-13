@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlwrapper/dbctx"
-	"github.com/huangjunwen/sqlwrapper/stmtx"
+	"github.com/huangjunwen/sqlwrapper/stmt"
 )
 
 type replaceDirective struct {

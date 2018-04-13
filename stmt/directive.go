@@ -26,6 +26,7 @@ type StmtDirective interface {
 	ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error
 }
 
+// textDirective is a special directive.
 type textDirective struct {
 	data string
 }
