@@ -3,8 +3,9 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	"github.com/huangjunwen/sqlw/driver"
+	"reflect"
 )
 
 type mysqlDriver struct{}
@@ -12,6 +13,25 @@ type mysqlDriver struct{}
 var (
 	_ driver.Driver            = mysqlDriver{}
 	_ driver.DriverWithAutoInc = mysqlDriver{}
+)
+
+var (
+	// Copy from github.com/go-sql-driver/mysql/fields.go
+	scanTypeFloat32   = reflect.TypeOf(float32(0))
+	scanTypeFloat64   = reflect.TypeOf(float64(0))
+	scanTypeInt8      = reflect.TypeOf(int8(0))
+	scanTypeInt16     = reflect.TypeOf(int16(0))
+	scanTypeInt32     = reflect.TypeOf(int32(0))
+	scanTypeInt64     = reflect.TypeOf(int64(0))
+	scanTypeNullFloat = reflect.TypeOf(sql.NullFloat64{})
+	scanTypeNullInt   = reflect.TypeOf(sql.NullInt64{})
+	scanTypeNullTime  = reflect.TypeOf(mysql.NullTime{})
+	scanTypeUint8     = reflect.TypeOf(uint8(0))
+	scanTypeUint16    = reflect.TypeOf(uint16(0))
+	scanTypeUint32    = reflect.TypeOf(uint32(0))
+	scanTypeUint64    = reflect.TypeOf(uint64(0))
+	scanTypeRawBytes  = reflect.TypeOf(sql.RawBytes{})
+	scanTypeUnknown   = reflect.TypeOf(new(interface{}))
 )
 
 func (driver mysqlDriver) ExtractTableNames(db *sql.DB) (tableNames []string, err error) {
@@ -228,6 +248,25 @@ func (driver mysqlDriver) ExtractFK(db *sql.DB, tableName string, fkName string)
 
 	return columnNames, refTableName, refColumnNames, nil
 
+}
+
+func (driver mysqlDriver) ScanType(typ *sql.ColumnType) (string, error) {
+	switch typ.ScanType() {
+	case scanTypeFloat32, scanTypeFloat64, scanTypeNullFloat:
+		return "null.Float", nil
+
+	case scanTypeInt8, scanTypeInt16, scanTypeInt32, scanTypeInt64, scanTypeUint8, scanTypeUint16, scanTypeUint32, scanTypeUint64, scanTypeNullInt:
+		return "null.Int", nil
+
+	case scanTypeNullTime:
+		return "null.Time", nil
+
+	case scanTypeRawBytes:
+		return "null.String", nil
+
+	default:
+		return "", fmt.Errorf("Not support column type %s", typ.ScanType().String())
+	}
 }
 
 func extractDBName(db *sql.DB) (string, error) {
