@@ -72,7 +72,7 @@ func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *stmt.StmtInfo
 		return fmt.Errorf("Missing 'table' attribute in <wildcard> directive")
 	}
 
-	table, found := ctx.DBInfo().TableByName(tableName)
+	table, found := ctx.DB().TableByName(tableName)
 	if !found {
 		return fmt.Errorf("Table %+q not found", tableName)
 	}

@@ -47,23 +47,23 @@ type FKInfo struct {
 	refColumnNames []string
 }
 
-func newDBInfo(db *sql.DB, drv driver.Driver) (*DBInfo, error) {
+func newDBInfo(conn *sql.DB, drv driver.Driver) (*DBInfo, error) {
 
 	_, supportAutoInc := drv.(driver.DriverWithAutoInc)
 
-	dbInfo := &DBInfo{
+	db := &DBInfo{
 		tableNames: make(map[string]int),
 	}
 
-	tableNames, err := drv.ExtractTableNames(db)
+	tableNames, err := drv.ExtractTableNames(conn)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, tableName := range tableNames {
 
-		tableInfo := &TableInfo{
-			db:          dbInfo,
+		table := &TableInfo{
+			db:          db,
 			tableName:   tableName,
 			columnNames: make(map[string]int),
 			indexNames:  make(map[string]int),
@@ -72,100 +72,100 @@ func newDBInfo(db *sql.DB, drv driver.Driver) (*DBInfo, error) {
 
 		// fill columns info
 
-		columnNames, columnTypes, err := drv.ExtractColumns(db, tableName)
+		columnNames, columnTypes, err := drv.ExtractColumns(conn, tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for i, columnName := range columnNames {
-			columnInfo := &ColumnInfo{
-				table:      tableInfo,
+			column := &ColumnInfo{
+				table:      table,
 				columnName: columnName,
 				columnType: columnTypes[i],
 				pos:        i,
 			}
-			tableInfo.columns = append(tableInfo.columns, columnInfo)
-			tableInfo.columnNames[columnName] = len(tableInfo.columns) - 1
+			table.columns = append(table.columns, column)
+			table.columnNames[columnName] = len(table.columns) - 1
 		}
 
 		if supportAutoInc {
-			autoIncColumnName, err := drv.(driver.DriverWithAutoInc).ExtractAutoIncColumn(db, tableName)
+			autoIncColumnName, err := drv.(driver.DriverWithAutoInc).ExtractAutoIncColumn(conn, tableName)
 			if err != nil {
 				return nil, err
 			}
 			if autoIncColumnName != "" {
-				tableInfo.autoIncColumn = tableInfo.columns[tableInfo.columnNames[autoIncColumnName]]
+				table.autoIncColumn = table.columns[table.columnNames[autoIncColumnName]]
 			}
 		}
 
 		// fill indices info
 
-		indexNames, err := drv.ExtractIndexNames(db, tableName)
+		indexNames, err := drv.ExtractIndexNames(conn, tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, indexName := range indexNames {
-			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(db, tableName, indexName)
+			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, tableName, indexName)
 			if err != nil {
 				return nil, err
 			}
 
-			indexInfo := &IndexInfo{
-				table:     tableInfo,
+			index := &IndexInfo{
+				table:     table,
 				indexName: indexName,
 				isPrimary: isPrimary,
 				isUnique:  isUnique,
 			}
 
 			for _, columnName := range columnNames {
-				indexInfo.columns = append(indexInfo.columns, tableInfo.columns[tableInfo.columnNames[columnName]])
+				index.columns = append(index.columns, table.columns[table.columnNames[columnName]])
 			}
 
-			tableInfo.indices = append(tableInfo.indices, indexInfo)
-			tableInfo.indexNames[indexName] = len(tableInfo.indices) - 1
+			table.indices = append(table.indices, index)
+			table.indexNames[indexName] = len(table.indices) - 1
 
 			// This is primary index
 			if isPrimary {
-				tableInfo.primary = indexInfo
+				table.primary = index
 			}
 		}
 
 		// fill fk info
 
-		fkNames, err := drv.ExtractFKNames(db, tableName)
+		fkNames, err := drv.ExtractFKNames(conn, tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, fkName := range fkNames {
-			columnNames, refTableName, refColumnNames, err := drv.ExtractFK(db, tableName, fkName)
+			columnNames, refTableName, refColumnNames, err := drv.ExtractFK(conn, tableName, fkName)
 			if err != nil {
 				return nil, err
 			}
 
-			fkInfo := &FKInfo{
+			fk := &FKInfo{
 				fkName:         fkName,
-				table:          tableInfo,
+				table:          table,
 				refTableName:   refTableName,
 				refColumnNames: refColumnNames,
 			}
 
 			for _, columnName := range columnNames {
-				fkInfo.columns = append(fkInfo.columns, tableInfo.columns[tableInfo.columnNames[columnName]])
+				fk.columns = append(fk.columns, table.columns[table.columnNames[columnName]])
 			}
 
-			tableInfo.fks = append(tableInfo.fks, fkInfo)
-			tableInfo.fkNames[fkName] = len(tableInfo.fks) - 1
+			table.fks = append(table.fks, fk)
+			table.fkNames[fkName] = len(table.fks) - 1
 
 		}
 
-		dbInfo.tables = append(dbInfo.tables, tableInfo)
-		dbInfo.tableNames[tableName] = len(dbInfo.tables) - 1
+		db.tables = append(db.tables, table)
+		db.tableNames[tableName] = len(db.tables) - 1
 
 	}
 
-	return dbInfo, nil
+	return db, nil
 
 }
 
@@ -190,11 +190,11 @@ func (info *DBInfo) TableByName(tableName string) (tableInfo *TableInfo, found b
 }
 
 func (info *DBInfo) TableByNameM(tableName string) *TableInfo {
-	tableInfo, found := info.TableByName(tableName)
+	table, found := info.TableByName(tableName)
 	if !found {
 		panic(fmt.Errorf("Table %+q not found", tableName))
 	}
-	return tableInfo
+	return table
 }
 
 func (info *TableInfo) Valid() bool {
@@ -229,11 +229,11 @@ func (info *TableInfo) ColumnByName(columnName string) (columnInfo *ColumnInfo, 
 }
 
 func (info *TableInfo) ColumnByNameM(columnName string) *ColumnInfo {
-	columnInfo, found := info.ColumnByName(columnName)
+	column, found := info.ColumnByName(columnName)
 	if !found {
 		panic(fmt.Errorf("Column %+q not found in table %+q", columnName, info.tableName))
 	}
-	return columnInfo
+	return column
 }
 
 func (info *TableInfo) NumIndex() int {
@@ -253,11 +253,11 @@ func (info *TableInfo) IndexByName(indexName string) (indexInfo *IndexInfo, foun
 }
 
 func (info *TableInfo) IndexByNameM(indexName string) *IndexInfo {
-	indexInfo, found := info.IndexByName(indexName)
+	index, found := info.IndexByName(indexName)
 	if !found {
 		panic(fmt.Errorf("Index %+q not found in table %+q", indexName, info.tableName))
 	}
-	return indexInfo
+	return index
 }
 
 func (info *TableInfo) NumFK() int {
@@ -277,11 +277,11 @@ func (info *TableInfo) FKByName(fkName string) (fkInfo *FKInfo, found bool) {
 }
 
 func (info *TableInfo) FKByNameM(fkName string) *FKInfo {
-	fkInfo, found := info.FKByName(fkName)
+	fk, found := info.FKByName(fkName)
 	if !found {
 		panic(fmt.Errorf("FK %+q not found in table %+q", fkName, info.tableName))
 	}
-	return fkInfo
+	return fk
 }
 
 func (info *TableInfo) Primary() *IndexInfo {

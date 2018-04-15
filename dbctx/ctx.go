@@ -9,13 +9,13 @@ import (
 type DBContext struct {
 	driverName     string
 	dataSourceName string
-	db             *sql.DB
+	conn           *sql.DB
 	drv            driver.Driver
-	dbInfo         *DBInfo
+	db             *DBInfo
 }
 
 func NewDBContext(driverName, dataSourceName string) (*DBContext, error) {
-	db, err := sql.Open(driverName, dataSourceName)
+	conn, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func NewDBContext(driverName, dataSourceName string) (*DBContext, error) {
 		return nil, fmt.Errorf("Unsupported driver %+q", driverName)
 	}
 
-	dbInfo, err := newDBInfo(db, drv)
+	db, err := newDBInfo(conn, drv)
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +34,8 @@ func NewDBContext(driverName, dataSourceName string) (*DBContext, error) {
 		driverName:     driverName,
 		dataSourceName: dataSourceName,
 		drv:            drv,
+		conn:           conn,
 		db:             db,
-		dbInfo:         dbInfo,
 	}, nil
 
 }
@@ -48,14 +48,18 @@ func (ctx *DBContext) DataSourceName() string {
 	return ctx.dataSourceName
 }
 
-func (ctx *DBContext) DB() *sql.DB {
-	return ctx.db
+func (ctx *DBContext) Conn() *sql.DB {
+	return ctx.conn
 }
 
 func (ctx *DBContext) Drv() driver.Driver {
 	return ctx.drv
 }
 
-func (ctx *DBContext) DBInfo() *DBInfo {
-	return ctx.dbInfo
+func (ctx *DBContext) DB() *DBInfo {
+	return ctx.db
+}
+
+func (ctx *DBContext) Close() {
+	ctx.conn.Close()
 }

@@ -143,7 +143,7 @@ func (info *StmtInfo) processStmtElem(ctx *dbctx.DBContext, stmtElem *etree.Elem
 		stmtTextQuery := strings.Join(fragments, "")
 
 		// Query
-		rows, err := ctx.DB().Query(stmtTextQuery)
+		rows, err := ctx.Conn().Query(stmtTextQuery)
 		if err != nil {
 			return err
 		}

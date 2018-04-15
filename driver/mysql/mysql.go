@@ -34,8 +34,8 @@ var (
 	scanTypeUnknown   = reflect.TypeOf(new(interface{}))
 )
 
-func (driver mysqlDriver) ExtractTableNames(db *sql.DB) (tableNames []string, err error) {
-	rows, err := db.Query("SHOW TABLES")
+func (driver mysqlDriver) ExtractTableNames(conn *sql.DB) (tableNames []string, err error) {
+	rows, err := conn.Query("SHOW TABLES")
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +51,8 @@ func (driver mysqlDriver) ExtractTableNames(db *sql.DB) (tableNames []string, er
 	return tableNames, nil
 }
 
-func (driver mysqlDriver) ExtractColumns(db *sql.DB, tableName string) (columnNames []string, columnTypes []*sql.ColumnType, err error) {
-	rows, err := db.Query("SELECT * FROM " + tableName)
+func (driver mysqlDriver) ExtractColumns(conn *sql.DB, tableName string) (columnNames []string, columnTypes []*sql.ColumnType, err error) {
+	rows, err := conn.Query("SELECT * FROM " + tableName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -71,13 +71,13 @@ func (driver mysqlDriver) ExtractColumns(db *sql.DB, tableName string) (columnNa
 	return columnNames, columnTypes, nil
 }
 
-func (driver mysqlDriver) ExtractAutoIncColumn(db *sql.DB, tableName string) (columnName string, err error) {
-	dbName, err := extractDBName(db)
+func (driver mysqlDriver) ExtractAutoIncColumn(conn *sql.DB, tableName string) (columnName string, err error) {
+	dbName, err := extractDBName(conn)
 	if err != nil {
 		return "", err
 	}
 
-	rows, err := db.Query(`
+	rows, err := conn.Query(`
 	SELECT
 		COLUMN_NAME
 	FROM
@@ -100,13 +100,13 @@ func (driver mysqlDriver) ExtractAutoIncColumn(db *sql.DB, tableName string) (co
 	return columnName, nil
 }
 
-func (driver mysqlDriver) ExtractIndexNames(db *sql.DB, tableName string) (indexNames []string, err error) {
-	dbName, err := extractDBName(db)
+func (driver mysqlDriver) ExtractIndexNames(conn *sql.DB, tableName string) (indexNames []string, err error) {
+	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := db.Query(`
+	rows, err := conn.Query(`
 	SELECT 
 		DISTINCT INDEX_NAME 
 	FROM 
@@ -129,13 +129,13 @@ func (driver mysqlDriver) ExtractIndexNames(db *sql.DB, tableName string) (index
 
 }
 
-func (driver mysqlDriver) ExtractIndex(db *sql.DB, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
-	dbName, err := extractDBName(db)
+func (driver mysqlDriver) ExtractIndex(conn *sql.DB, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
+	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, false, false, err
 	}
 
-	rows, err := db.Query(`
+	rows, err := conn.Query(`
 	SELECT 
 		NON_UNIQUE, COLUMN_NAME, SEQ_IN_INDEX 
 	FROM
@@ -177,13 +177,13 @@ func (driver mysqlDriver) ExtractIndex(db *sql.DB, tableName string, indexName s
 	return
 }
 
-func (driver mysqlDriver) ExtractFKNames(db *sql.DB, tableName string) (fkNames []string, err error) {
-	dbName, err := extractDBName(db)
+func (driver mysqlDriver) ExtractFKNames(conn *sql.DB, tableName string) (fkNames []string, err error) {
+	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := db.Query(`
+	rows, err := conn.Query(`
 	SELECT
 		CONSTRAINT_NAME
 	FROM
@@ -205,13 +205,13 @@ func (driver mysqlDriver) ExtractFKNames(db *sql.DB, tableName string) (fkNames 
 	return fkNames, nil
 }
 
-func (driver mysqlDriver) ExtractFK(db *sql.DB, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
-	dbName, err := extractDBName(db)
+func (driver mysqlDriver) ExtractFK(conn *sql.DB, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
+	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, "", nil, err
 	}
 
-	rows, err := db.Query(`
+	rows, err := conn.Query(`
 		SELECT
 			COLUMN_NAME, ORDINAL_POSITION, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
 		FROM
@@ -269,9 +269,9 @@ func (driver mysqlDriver) ScanType(typ *sql.ColumnType) (string, error) {
 	}
 }
 
-func extractDBName(db *sql.DB) (string, error) {
+func extractDBName(conn *sql.DB) (string, error) {
 	dbName := ""
-	err := db.QueryRow("SELECT DATABASE()").Scan(&dbName)
+	err := conn.QueryRow("SELECT DATABASE()").Scan(&dbName)
 	return dbName, err
 }
 
