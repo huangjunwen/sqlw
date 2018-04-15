@@ -181,6 +181,17 @@ func (info *DBInfo) Table(i int) *TableInfo {
 	return info.tables[i]
 }
 
+func (info *DBInfo) IterTables() chan *TableInfo {
+	ret := make(chan *TableInfo)
+	go func() {
+		for i := 0; i < info.NumTable(); i++ {
+			ret <- info.Table(i)
+		}
+		close(ret)
+	}()
+	return ret
+}
+
 func (info *DBInfo) TableByName(tableName string) (tableInfo *TableInfo, found bool) {
 	i, found := info.tableNames[tableName]
 	if !found {
@@ -220,6 +231,17 @@ func (info *TableInfo) Column(i int) *ColumnInfo {
 	return info.columns[i]
 }
 
+func (info *TableInfo) IterColumns() chan *ColumnInfo {
+	ret := make(chan *ColumnInfo)
+	go func() {
+		for i := 0; i < info.NumColumn(); i++ {
+			ret <- info.Column(i)
+		}
+		close(ret)
+	}()
+	return ret
+}
+
 func (info *TableInfo) ColumnByName(columnName string) (columnInfo *ColumnInfo, found bool) {
 	i, found := info.columnNames[columnName]
 	if !found {
@@ -244,6 +266,17 @@ func (info *TableInfo) Index(i int) *IndexInfo {
 	return info.indices[i]
 }
 
+func (info *TableInfo) IterIndices() chan *IndexInfo {
+	ret := make(chan *IndexInfo)
+	go func() {
+		for i := 0; i < info.NumIndex(); i++ {
+			ret <- info.Index(i)
+		}
+		close(ret)
+	}()
+	return ret
+}
+
 func (info *TableInfo) IndexByName(indexName string) (indexInfo *IndexInfo, found bool) {
 	i, found := info.indexNames[indexName]
 	if !found {
@@ -266,6 +299,17 @@ func (info *TableInfo) NumFK() int {
 
 func (info *TableInfo) FK(i int) *FKInfo {
 	return info.fks[i]
+}
+
+func (info *TableInfo) IterFKs() chan *FKInfo {
+	ret := make(chan *FKInfo)
+	go func() {
+		for i := 0; i < info.NumFK(); i++ {
+			ret <- info.FK(i)
+		}
+		close(ret)
+	}()
+	return ret
 }
 
 func (info *TableInfo) FKByName(fkName string) (fkInfo *FKInfo, found bool) {
