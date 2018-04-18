@@ -65,8 +65,9 @@ func (r *Renderer) Run() error {
 
 			// Render table.
 			return tableTemplate.Execute(out, map[string]interface{}{
-				"Table": table,
-				"Ctx":   r.DBContext,
+				"Table":       table,
+				"DBContext":   r.DBContext,
+				"PackageName": r.OutputPackage,
 			})
 
 		}(); err != nil {
@@ -88,17 +89,16 @@ func (r *Renderer) openTemplate(name string) (*template.Template, error) {
 		return nil, err
 	}
 
-	t, err := template.New(name).Parse(string(b))
+	t, err := template.New(name).Funcs(funcMap(r.DBContext)).Parse(string(b))
 	if err != nil {
 		return nil, err
 	}
 
-	t.Funcs(funcMap(r.DBContext))
 	return t, nil
 
 }
 
 func (r *Renderer) openOutputFile(name string) (*os.File, error) {
 	p := path.Join(r.OutputDir, fmt.Sprintf("%s.go", name))
-	return os.OpenFile(p, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	return os.OpenFile(p, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 }

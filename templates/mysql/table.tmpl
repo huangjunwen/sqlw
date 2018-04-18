@@ -1,0 +1,14 @@
+package {{ .PackageName }}
+
+import (
+	"gopkg.in/guregu/null.v3"
+)
+
+{{ $lowerTableName := LowerCamel .Table.TableName }}
+{{ $upperTableName := UpperCamel .Table.TableName }}
+
+type {{ $upperTableName }} struct {
+	{{ range $j, $column := .Table.Columns -}}
+	{{ UpperCamel $column.ColumnName }} {{ ScanType $column.ColumnType }} `json:"{{ $column.ColumnName }}" db:"{{ $column.ColumnName }}"`
+	{{ end }}
+}
