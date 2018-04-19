@@ -1,4 +1,4 @@
-//go:generate esc -o template.go templates
+//go:generate esc -o template.go template
 package main
 
 import (
@@ -25,7 +25,7 @@ func newPrefixFS(prefix string, fs http.FileSystem) *PrefixFS {
 }
 
 func (fs *PrefixFS) Open(name string) (http.File, error) {
-	return fs.fs.Open(path.Join("/templates", fs.prefix, name))
+	return fs.fs.Open(path.Join("/template", fs.prefix, name))
 }
 
 var (
