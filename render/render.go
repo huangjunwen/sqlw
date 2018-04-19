@@ -13,105 +13,114 @@ import (
 	"github.com/huangjunwen/sqlw/dbctx"
 )
 
+// Renderer is used for generating code.
 type Renderer struct {
-	// Database context.
-	DBContext *dbctx.DBContext
+	// Options
+	ctx       *dbctx.DBContext
+	tmplFS    http.FileSystem
+	stmtDir   string
+	outputDir string
+	outputPkg string
 
-	// StmtXMLDir specified the directory containing statement xmls.
-	StmtXMLDir string
-
-	// TemplateFS contains template files.
-	TemplateFS http.FileSystem
-
-	// OutputDir specified output package's directory, default "models".
-	OutputDir string
-
-	// OutputPackage specified an alternative package name if not empty.
-	OutputPackage string
+	templates map[string]*template.Template
 }
 
-func (r *Renderer) Run() error {
-
-	// Clean output directory.
-	if r.OutputDir == "" {
-		r.OutputDir = "models"
+// NewRenderer create new Renderer.
+func NewRenderer(opts ...Option) (*Renderer, error) {
+	r := &Renderer{
+		templates: make(map[string]*template.Template),
 	}
-	r.OutputDir = path.Clean(r.OutputDir)
-	if r.OutputDir[len(r.OutputDir)-1] == '/' {
-		return fmt.Errorf("Output directory can't be '/'")
-	}
-
-	// Mkdir output directory.
-	if err := os.MkdirAll(r.OutputDir, 0755); err != nil {
-		return err
+	for _, op := range opts {
+		if err := op(r); err != nil {
+			return nil, err
+		}
 	}
 
-	// Determine output package name.
-	if r.OutputPackage == "" {
-		r.OutputPackage = path.Base(r.OutputDir)
+	if r.ctx == nil {
+		return nil, fmt.Errorf("Missing DBContext")
+	}
+	if r.tmplFS == nil {
+		return nil, fmt.Errorf("Missing FS")
+	}
+	if r.outputDir == "" {
+		return nil, fmt.Errorf("Missing output directory")
 	}
 
-	// Render tables.
-	tableTemplate, err := r.openTemplate("table")
+	if r.outputPkg == "" {
+		r.outputPkg = path.Base(r.outputDir)
+	}
+
+	return r, nil
+
+}
+
+func (r *Renderer) render(tmplName, fileName string, data interface{}) error {
+
+	// Open template if not exists.
+	tmpl := r.templates[tmplName]
+	if tmpl == nil {
+		tmplFile, err := r.tmplFS.Open(fmt.Sprintf("%s.tmpl", tmplName))
+		if err != nil {
+			return err
+		}
+
+		tmplContent, err := ioutil.ReadAll(tmplFile)
+		if err != nil {
+			return err
+		}
+
+		tmpl, err = template.New(tmplName).Funcs(funcMap(r.ctx)).Parse(string(tmplContent))
+		if err != nil {
+			return err
+		}
+
+		r.templates[tmplName] = tmpl
+	}
+
+	// Open output file.
+	file, err := os.OpenFile(path.Join(r.outputDir, fmt.Sprintf("%s.go", fileName)), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
-	for _, table := range r.DBContext.DB().Tables() {
-		// Render table.
-		buf := &bytes.Buffer{}
-		if err := tableTemplate.Execute(buf, map[string]interface{}{
+	defer file.Close()
+
+	// Render.
+	buf := &bytes.Buffer{}
+	if err := tmpl.Execute(buf, data); err != nil {
+		return err
+	}
+
+	// Format.
+	fmtBuf, err := format.Source(buf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	// Write.
+	_, err = file.Write(fmtBuf)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+// Run generate code.
+func (r *Renderer) Run() error {
+
+	// Render tables.
+	for _, table := range r.ctx.DB().Tables() {
+		if err := r.render("table", table.TableName(), map[string]interface{}{
 			"Table":       table,
-			"DBContext":   r.DBContext,
-			"PackageName": r.OutputPackage,
+			"DBContext":   r.ctx,
+			"PackageName": r.outputPkg,
 		}); err != nil {
 			return err
 		}
-
-		// Format
-		fmtBuf, err := format.Source(buf.Bytes())
-		if err != nil {
-			return err
-		}
-
-		// Write file.
-		out, err := r.openOutputFile(table.TableName())
-		if err != nil {
-			return err
-		}
-		_, err = out.Write(fmtBuf)
-		if err != nil {
-			return err
-		}
-		out.Close()
-
 	}
 
 	// TODO
 
 	return nil
-}
-
-func (r *Renderer) openTemplate(name string) (*template.Template, error) {
-	templateFile, err := r.TemplateFS.Open(fmt.Sprintf("%s.tmpl", name))
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := ioutil.ReadAll(templateFile)
-	if err != nil {
-		return nil, err
-	}
-
-	t, err := template.New(name).Funcs(funcMap(r.DBContext)).Parse(string(b))
-	if err != nil {
-		return nil, err
-	}
-
-	return t, nil
-
-}
-
-func (r *Renderer) openOutputFile(name string) (*os.File, error) {
-	p := path.Join(r.OutputDir, fmt.Sprintf("%s.go", name))
-	return os.OpenFile(p, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 }

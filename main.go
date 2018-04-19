@@ -31,18 +31,20 @@ func (fs *PrefixFS) Open(name string) (http.File, error) {
 var (
 	driverName     string
 	dataSourceName string
-	outputPackage  string
 	outputDir      string
-	templateDir    string
+	outputPackage  string
+	stmtDir        string
+	tmplDir        string
 )
 
 func main() {
 	// Parse flags.
 	flag.StringVar(&driverName, "driver", "mysql", "Driver name. (e.g. 'mysql')")
 	flag.StringVar(&dataSourceName, "dsn", "root:123456@tcp(localhost:3306)/dev?parseTime=true", "Data source name. ")
-	flag.StringVar(&outputPackage, "pkg", "models", "Package name of the generated code.")
 	flag.StringVar(&outputDir, "out", "models", "Output directory for generated code.")
-	flag.StringVar(&templateDir, "tmpl", "", "Custom templates directory.")
+	flag.StringVar(&outputPackage, "pkg", "", "Package name of the generated code.")
+	flag.StringVar(&stmtDir, "stmt", "", "Statement xml directory.")
+	flag.StringVar(&tmplDir, "tmpl", "", "Custom templates directory.")
 	flag.Parse()
 	if driverName == "" {
 		log.Fatalf("Missing -driver")
@@ -60,19 +62,25 @@ func main() {
 
 	// Choose template.
 	fs := http.FileSystem(nil)
-	if templateDir != "" {
-		fs = http.Dir(templateDir)
+	if tmplDir != "" {
+		fs = http.Dir(tmplDir)
 	} else {
 		fs = newPrefixFS(ctx.DriverName(), FS(false))
 	}
 
 	// Render.
-	renderer := &render.Renderer{
-		DBContext:     ctx,
-		TemplateFS:    fs,
-		OutputDir:     outputDir,
-		OutputPackage: outputPackage,
+	renderer, err := render.NewRenderer(
+		render.DBContext(ctx),
+		render.OutputDir(outputDir),
+		render.OutputPackage(outputPackage),
+		render.StmtDir(stmtDir),
+		render.TemplateFS(fs),
+	)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	// Run!
 	if err := renderer.Run(); err != nil {
 		log.Fatal(err)
 	}
