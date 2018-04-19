@@ -33,13 +33,16 @@ var (
 	dataSourceName string
 	outputPackage  string
 	outputDir      string
+	templateDir    string
 )
 
 func main() {
+	// Parse flags.
 	flag.StringVar(&driverName, "driver", "mysql", "Driver name. (e.g. 'mysql')")
 	flag.StringVar(&dataSourceName, "dsn", "root:123456@tcp(localhost:3306)/dev?parseTime=true", "Data source name. ")
 	flag.StringVar(&outputPackage, "pkg", "models", "Package name of the generated code.")
 	flag.StringVar(&outputDir, "out", "models", "Output directory for generated code.")
+	flag.StringVar(&templateDir, "tmpl", "", "Custom templates directory.")
 	flag.Parse()
 	if driverName == "" {
 		log.Fatalf("Missing -driver")
@@ -48,15 +51,25 @@ func main() {
 		log.Fatalf("Missing -dsn")
 	}
 
+	// Extract database information.
 	ctx, err := dbctx.NewDBContext(driverName, dataSourceName)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer ctx.Close()
 
+	// Choose template.
+	fs := http.FileSystem(nil)
+	if templateDir != "" {
+		fs = http.Dir(templateDir)
+	} else {
+		fs = newPrefixFS(ctx.DriverName(), FS(false))
+	}
+
+	// Render.
 	renderer := &render.Renderer{
 		DBContext:     ctx,
-		TemplateFS:    newPrefixFS(ctx.DriverName(), FS(false)),
+		TemplateFS:    fs,
 		OutputDir:     outputDir,
 		OutputPackage: outputPackage,
 	}
