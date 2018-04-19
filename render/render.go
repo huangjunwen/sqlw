@@ -1,7 +1,9 @@
 package render
 
 import (
+	"bytes"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -55,25 +57,36 @@ func (r *Renderer) Run() error {
 		return err
 	}
 	for _, table := range r.DBContext.DB().Tables() {
-		if err := func() error {
-			// Open output file.
-			out, err := r.openOutputFile(table.TableName())
-			if err != nil {
-				return err
-			}
-			defer out.Close()
-
-			// Render table.
-			return tableTemplate.Execute(out, map[string]interface{}{
-				"Table":       table,
-				"DBContext":   r.DBContext,
-				"PackageName": r.OutputPackage,
-			})
-
-		}(); err != nil {
+		// Render table.
+		buf := &bytes.Buffer{}
+		if err := tableTemplate.Execute(buf, map[string]interface{}{
+			"Table":       table,
+			"DBContext":   r.DBContext,
+			"PackageName": r.OutputPackage,
+		}); err != nil {
 			return err
 		}
+
+		// Format
+		fmtBuf, err := format.Source(buf.Bytes())
+		if err != nil {
+			return err
+		}
+
+		// Write file.
+		out, err := r.openOutputFile(table.TableName())
+		if err != nil {
+			return err
+		}
+		_, err = out.Write(fmtBuf)
+		if err != nil {
+			return err
+		}
+		out.Close()
+
 	}
+
+	// TODO
 
 	return nil
 }
