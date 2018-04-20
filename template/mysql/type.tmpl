@@ -1,0 +1,29 @@
+package {{ .PackageName }}
+
+import (
+  "context"
+  "database/sql"
+)
+
+// Execer is the common interface to execute a query without returning any rows.
+type Execer interface {
+  ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+}
+
+// Execer is the common interface to execute a query returning row(s).
+type Queryer interface {
+  QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+  QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
+// TableEntry is the common interface of tables entries.
+type TableEntry interface {
+  // TableName returns the table name.
+  TableName() string
+
+  // PrimaryColumnNames returns the list of column names of primary key.
+  PrimaryColumnNames() []string
+
+  // ValueMap returns a map mapping column name to column value (or nil if null) of this entry.
+  ValueMap() map[string]interface{}
+}

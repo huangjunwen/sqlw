@@ -1,14 +1,74 @@
 package {{ .PackageName }}
 
 import (
+  "context"
+
 	"gopkg.in/guregu/null.v3"
 )
 
+{{ $tableName := .Table.TableName }}
 {{ $lowerTableName := LowerCamel .Table.TableName }}
 {{ $upperTableName := UpperCamel .Table.TableName }}
+{{ $primary := .Table.Primary }}
 
 type {{ $upperTableName }} struct {
-	{{ range $j, $column := .Table.Columns -}}
+	{{ range $column := .Table.Columns -}}
 	{{ UpperCamel $column.ColumnName }} {{ ScanType $column.ColumnType }} `json:"{{ $column.ColumnName }}" db:"{{ $column.ColumnName }}"`
 	{{ end }}
 }
+
+func ({{ $lowerTableName }} *{{ $upperTableName }}) TableName() string {
+  return "{{ $tableName }}"
+}
+
+func ({{ $lowerTableName }} *{{ $upperTableName }}) PrimaryColumnNames() []string {
+{{ if $primary.Valid -}}
+  return []string{
+    {{ range $column := $primary.Columns -}}
+    "{{ $column.ColumnName }}",
+    {{ end }}
+  }
+{{ else -}}
+  return nil
+{{ end -}}
+}
+
+func ({{ $lowerTableName }} *{{ $upperTableName }}) ValueMap() map[string]interface{} {
+  return map[string]interface{} {
+  {{ range $column := .Table.Columns -}}
+    "{{ $column.ColumnName }}": valueOrNil({{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}),
+  {{ end }}
+  }
+}
+
+// Insert all non-null values into `{{ $tableName  }}` table.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) Insert(ctx context.Context, e Execer) error {
+  query, args := buildInsert({{ $lowerTableName }})
+  r, err := e.ExecContext(ctx, query, args...)
+  _ = r
+  if err != nil {
+    return err
+  }
+
+  {{ $autoIncColumn := .Table.AutoIncColumn }}
+  {{ if $autoIncColumn.Valid }}
+  {{ $upperAutoIncColumnName := UpperCamel $autoIncColumn.ColumnName }}
+  if {{ $lowerTableName }}.{{ $upperAutoIncColumnName }}.Ptr() == nil {
+    lastInsertId, err := r.LastInsertId()
+    if err != nil {
+      return err
+    }
+    {{ $lowerTableName }}.{{ $upperAutoIncColumnName }}.SetValid(lastInsertId)
+  }
+  {{ end }}
+
+  return nil
+}
+
+{{ if $primary.Valid }}
+
+func ({{ $lowerTableName }} *{{ $upperTableName }}) Update(ctx context.Context, e Execer, new{{ $upperTableName }} *{{ $upperTableName }}) error {
+  return nil
+}
+
+{{ end }}

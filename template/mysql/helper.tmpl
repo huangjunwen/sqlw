@@ -1,0 +1,61 @@
+package {{ .PackageName }}
+
+import (
+  "fmt"
+  "strings"
+
+	"gopkg.in/guregu/null.v3"
+)
+
+func valueOrNil(val interface{}) interface{} {
+  switch v := val.(type) {
+  case null.Bool:
+    if v.Ptr() == nil {
+      return nil
+    }
+    return *v.Ptr()
+
+  case null.Float:
+    if v.Ptr() == nil {
+      return nil
+    }
+    return *v.Ptr()
+
+  case null.Int:
+    if v.Ptr() == nil {
+      return nil
+    }
+    return *v.Ptr()
+
+  case null.String:
+    if v.Ptr() == nil {
+      return nil
+    }
+    return *v.Ptr()
+
+  case null.Time:
+    if v.Ptr() == nil {
+      return nil
+    }
+    return *v.Ptr()
+  }
+  return val
+}
+
+func buildInsert(entry TableEntry) (string, []interface{}) {
+  cols := []string{}
+  phs := []string{}
+  vals := []interface{}{}
+
+  for col, val := range entry.ValueMap() {
+    if val == nil {
+      continue
+    }
+    cols = append(cols, col)
+    phs = append(phs, "?")
+    vals = append(vals, val)
+  }
+
+  return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", entry.TableName(), strings.Join(cols, ", "), strings.Join(phs, ", ")), vals
+
+}
