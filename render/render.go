@@ -1,9 +1,11 @@
 package render
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"go/format"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -129,26 +131,36 @@ func (r *Renderer) Run() error {
 	// TODO Render statements.
 
 	// Render extra files.
-	dir, err := r.tmplFS.Open("/")
-	if err != nil {
-		return err
-	}
-	fileInfos, err := dir.Readdir(-1)
-	if err != nil {
-		return err
-	}
-	for _, fileInfo := range fileInfos {
 
-		fileName := fileInfo.Name()
-		switch fileName {
-		// Skip these.
-		case tableTmplName, stmtTmplName:
+	// NOTE: Since esc (and other static assets embedders as well) does not support Readdir,
+	// i need to use an extra file to record template file names.
+	extraTmpls, err := r.tmplFS.Open("/extra_tmpls")
+	if err != nil {
+		// Ignore this error
+		return nil
+	}
+	defer extraTmpls.Close()
+
+	reader := bufio.NewReader(extraTmpls)
+	end := false
+	for !end {
+		// Each line should contain one template file name.
+		fileName, err := reader.ReadString('\n')
+		if err != nil {
+			if err != io.EOF {
+				return err
+			}
+			end = true
+		}
+
+		fileName = strings.TrimSpace(fileName)
+		if len(fileName) == 0 {
 			continue
 		}
 
 		// Not ends with ".tmpl"
 		if !strings.HasSuffix(fileName, ".tmpl") {
-			continue
+			return fmt.Errorf("File name not ends with '.tmpl' in extra_tmpls")
 		}
 
 		// Render.
