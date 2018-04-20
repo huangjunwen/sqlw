@@ -8,9 +8,15 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 	"text/template"
 
 	"github.com/huangjunwen/sqlw/dbctx"
+)
+
+const (
+	tableTmplName = "table.tmpl" // Used to render each table.
+	stmtTmplName  = "stmt.tmpl"  // Used to render each statement.
 )
 
 // Renderer is used for generating code.
@@ -59,7 +65,7 @@ func (r *Renderer) render(tmplName, fileName string, data interface{}) error {
 	// Open template if not exists.
 	tmpl := r.templates[tmplName]
 	if tmpl == nil {
-		tmplFile, err := r.tmplFS.Open(fmt.Sprintf("%s.tmpl", tmplName))
+		tmplFile, err := r.tmplFS.Open(tmplName)
 		if err != nil {
 			return err
 		}
@@ -78,7 +84,7 @@ func (r *Renderer) render(tmplName, fileName string, data interface{}) error {
 	}
 
 	// Open output file.
-	file, err := os.OpenFile(path.Join(r.outputDir, fmt.Sprintf("%s.go", fileName)), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	file, err := os.OpenFile(path.Join(r.outputDir, fileName), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -111,7 +117,7 @@ func (r *Renderer) Run() error {
 
 	// Render tables.
 	for _, table := range r.ctx.DB().Tables() {
-		if err := r.render("table", table.TableName(), map[string]interface{}{
+		if err := r.render(tableTmplName, table.TableName()+".go", map[string]interface{}{
 			"Table":       table,
 			"DBContext":   r.ctx,
 			"PackageName": r.outputPkg,
@@ -120,7 +126,42 @@ func (r *Renderer) Run() error {
 		}
 	}
 
-	// TODO
+	// TODO Render statements.
+
+	// Render extra files.
+	dir, err := r.tmplFS.Open("/")
+	if err != nil {
+		return err
+	}
+	fileInfos, err := dir.Readdir(-1)
+	if err != nil {
+		return err
+	}
+	for _, fileInfo := range fileInfos {
+
+		fileName := fileInfo.Name()
+		switch fileName {
+		// Skip these.
+		case tableTmplName, stmtTmplName:
+			continue
+		}
+
+		// Not ends with ".tmpl"
+		if !strings.HasSuffix(fileName, ".tmpl") {
+			continue
+		}
+
+		// Render.
+		tmplName := fileName
+		fileName = fileName[:len(fileName)-5] + ".go"
+		if err := r.render(tmplName, fileName, map[string]interface{}{
+			"DBContext":   r.ctx,
+			"PackageName": r.outputPkg,
+		}); err != nil {
+			return err
+		}
+
+	}
 
 	return nil
 }

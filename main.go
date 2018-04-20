@@ -42,7 +42,7 @@ func main() {
 	flag.StringVar(&driverName, "driver", "mysql", "Driver name. (e.g. 'mysql')")
 	flag.StringVar(&dataSourceName, "dsn", "root:123456@tcp(localhost:3306)/dev?parseTime=true", "Data source name. ")
 	flag.StringVar(&outputDir, "out", "models", "Output directory for generated code.")
-	flag.StringVar(&outputPackage, "pkg", "", "Package name of the generated code.")
+	flag.StringVar(&outputPackage, "pkg", "", "Alternative package name of the generated code.")
 	flag.StringVar(&stmtDir, "stmt", "", "Statement xml directory.")
 	flag.StringVar(&tmplDir, "tmpl", "", "Custom templates directory.")
 	flag.Parse()
