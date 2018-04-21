@@ -1,0 +1,7 @@
+{
+  "templates": [
+    "table.tmpl",
+    "type.tmpl",
+    "helper.tmpl"
+  ]
+}

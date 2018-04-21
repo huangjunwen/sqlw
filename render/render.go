@@ -1,11 +1,9 @@
 package render
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"go/format"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -117,6 +115,18 @@ func (r *Renderer) render(tmplName, fileName string, data interface{}) error {
 // Run generate code.
 func (r *Renderer) Run() error {
 
+	// Parse manifest.
+	manifestFile, err := r.tmplFS.Open("/manifest.json")
+	if err != nil {
+		return err
+	}
+	defer manifestFile.Close()
+
+	manifest, err := newManifest(manifestFile)
+	if err != nil {
+		return err
+	}
+
 	// Render tables.
 	for _, table := range r.ctx.DB().Tables() {
 		if err := r.render(tableTmplName, table.TableName()+".go", map[string]interface{}{
@@ -131,48 +141,26 @@ func (r *Renderer) Run() error {
 	// TODO Render statements.
 
 	// Render extra files.
-
-	// NOTE: Since esc (and other static assets embedders as well) does not support Readdir,
-	// i need to use an extra file to record template file names.
-	extraTmpls, err := r.tmplFS.Open("/extra_tmpls")
-	if err != nil {
-		// Ignore this error
-		return nil
-	}
-	defer extraTmpls.Close()
-
-	reader := bufio.NewReader(extraTmpls)
-	end := false
-	for !end {
-		// Each line should contain one template file name.
-		fileName, err := reader.ReadString('\n')
-		if err != nil {
-			if err != io.EOF {
-				return err
-			}
-			end = true
-		}
-
-		fileName = strings.TrimSpace(fileName)
-		if len(fileName) == 0 {
+	for _, tmplName := range manifest.Templates {
+		// Skip.
+		switch tmplName {
+		case tableTmplName, stmtTmplName:
 			continue
 		}
 
 		// Not ends with ".tmpl"
-		if !strings.HasSuffix(fileName, ".tmpl") {
-			return fmt.Errorf("File name not ends with '.tmpl' in extra_tmpls")
+		if !strings.HasSuffix(tmplName, ".tmpl") {
+			return fmt.Errorf("Template name does not ends with '.tmpl'")
 		}
 
 		// Render.
-		tmplName := fileName
-		fileName = fileName[:len(fileName)-5] + ".go"
+		fileName := tmplName[:len(tmplName)-5] + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{
 			"DBContext":   r.ctx,
 			"PackageName": r.outputPkg,
 		}); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
