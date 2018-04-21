@@ -6,7 +6,8 @@ import (
 )
 
 type manifest struct {
-	Templates []string `json:"templates"`
+	ScanTypeMap string   `json:"scan_type_map"`
+	Templates   []string `json:"templates"`
 }
 
 func newManifest(r io.Reader) (*manifest, error) {

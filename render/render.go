@@ -22,20 +22,21 @@ const (
 // Renderer is used for generating code.
 type Renderer struct {
 	// Options
-	ctx         *dbctx.DBContext
-	tmplFS      http.FileSystem
-	stmtDir     string
-	outputDir   string
-	outputPkg   string
-	scanTypeMap ScanTypeMap
+	ctx       *dbctx.DBContext
+	tmplFS    http.FileSystem
+	stmtDir   string
+	outputDir string
+	outputPkg string
 
-	templates map[string]*template.Template
+	scanTypeMap ScanTypeMap
+	templates   map[string]*template.Template
 }
 
 // NewRenderer create new Renderer.
 func NewRenderer(opts ...Option) (*Renderer, error) {
 	r := &Renderer{
-		templates: make(map[string]*template.Template),
+		templates:   make(map[string]*template.Template),
+		scanTypeMap: DefaultScanTypeMap,
 	}
 	for _, op := range opts {
 		if err := op(r); err != nil {
@@ -126,6 +127,22 @@ func (r *Renderer) Run() error {
 	manifest, err := newManifest(manifestFile)
 	if err != nil {
 		return err
+	}
+
+	// Load custom scan type map.
+	if manifest.ScanTypeMap != "" {
+		scanTypeMapFile, err := r.tmplFS.Open(manifest.ScanTypeMap)
+		if err != nil {
+			return err
+		}
+		defer scanTypeMapFile.Close()
+
+		scanTypeMap := NewScanTypeMap()
+		if err := scanTypeMap.Load(scanTypeMapFile); err != nil {
+			return err
+		}
+
+		r.scanTypeMap = r.scanTypeMap.Merge(scanTypeMap)
 	}
 
 	// Render tables.

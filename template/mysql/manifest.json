@@ -1,4 +1,5 @@
 {
+  "scan_type_map": "scan_type_map.json",
   "templates": [
     "table.tmpl",
     "type.tmpl",
