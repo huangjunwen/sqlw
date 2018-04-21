@@ -47,11 +47,11 @@ func buildInsert(entry TableEntry) (string, []interface{}) {
   phs := []string{}
   vals := []interface{}{}
 
-  for col, val := range entry.ValueMap() {
+  for i, val := range entry.ColumnValues() {
     if val == nil {
       continue
     }
-    cols = append(cols, col)
+    cols = append(cols, entry.ColumnNames()[i])
     phs = append(phs, "?")
     vals = append(vals, val)
   }

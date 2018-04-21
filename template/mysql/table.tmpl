@@ -21,22 +21,36 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) TableName() string {
   return "{{ $tableName }}"
 }
 
-func ({{ $lowerTableName }} *{{ $upperTableName }}) PrimaryColumnNames() []string {
-{{ if $primary.Valid -}}
-  return []string{
-    {{ range $column := $primary.Columns -}}
+var (
+  {{ $lowerTableName }}ColumnNames = []string{
+  {{ range $column := .Table.Columns -}}
     "{{ $column.ColumnName }}",
-    {{ end }}
+  {{ end }}
   }
-{{ else -}}
-  return nil
-{{ end -}}
+)
+
+func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnNames() []string {
+  return {{ $lowerTableName }}ColumnNames
 }
 
-func ({{ $lowerTableName }} *{{ $upperTableName }}) ValueMap() map[string]interface{} {
-  return map[string]interface{} {
+var (
+  {{ $lowerTableName }}PrimaryColumnNames = []string{
+  {{ if $primary.Valid -}}
+  {{ range $column := $primary.Columns -}}
+    "{{ $column.ColumnName }}",
+  {{ end }}
+  {{ end -}}
+  }
+)
+
+func ({{ $lowerTableName }} *{{ $upperTableName }}) PrimaryColumnNames() []string {
+  return {{ $lowerTableName }}PrimaryColumnNames
+}
+
+func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValues() []interface{} {
+  return []interface{}{
   {{ range $column := .Table.Columns -}}
-    "{{ $column.ColumnName }}": valueOrNil({{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}),
+    valueOrNil({{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}),
   {{ end }}
   }
 }

@@ -16,14 +16,17 @@ type Queryer interface {
   QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
-// TableEntry is the common interface of tables entries.
+// TableEntry is the common interface of an entry of a table.
 type TableEntry interface {
-  // TableName returns the table name.
+  // TableName() returns table name.
   TableName() string
 
-  // PrimaryColumnNames returns the list of column names of primary key.
+  // ColumnNames() returns list of column names.
+  ColumnNames() []string
+
+  // PrimaryColumnNames() returns list of column names of primary key.
   PrimaryColumnNames() []string
 
-  // ValueMap returns a map mapping column name to column value (or nil if null) of this entry.
-  ValueMap() map[string]interface{}
+  // ColumnValues() returns list of column values (or nil if it is null).
+  ColumnValues() []interface{}
 }
