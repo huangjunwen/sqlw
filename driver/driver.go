@@ -24,10 +24,13 @@ type Driver interface {
 	// ExtractFK() extract information of a given foreign key constraint.
 	ExtractFK(conn *sql.DB, tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error)
 
-	// ScanType() returns a Go type literal suitable for scanning into using Rows.Scan.
-	//
-	// NOTE: Should return types in https://github.com/guregu/null no matter nullable or not.
-	ScanType(typ *sql.ColumnType) (string, error)
+	// PrimitiveScanType() returns go primitive scanning type (ignore nullable) of a column type. Must be one of:
+	// - int/uint/int8/uint8/int16/uint16/int32/uint32/int64/uint64
+	// - float32/float64
+	// - bool
+	// - []byte/string
+	// - time.Time
+	PrimitiveScanType(typ *sql.ColumnType) (string, error)
 }
 
 // DriverWithAutoInc is Driver that support single auto increment column sematic (e.g. MySQL)

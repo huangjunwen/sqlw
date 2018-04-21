@@ -22,11 +22,12 @@ const (
 // Renderer is used for generating code.
 type Renderer struct {
 	// Options
-	ctx       *dbctx.DBContext
-	tmplFS    http.FileSystem
-	stmtDir   string
-	outputDir string
-	outputPkg string
+	ctx         *dbctx.DBContext
+	tmplFS      http.FileSystem
+	stmtDir     string
+	outputDir   string
+	outputPkg   string
+	scanTypeMap ScanTypeMap
 
 	templates map[string]*template.Template
 }
@@ -75,7 +76,7 @@ func (r *Renderer) render(tmplName, fileName string, data interface{}) error {
 			return err
 		}
 
-		tmpl, err = template.New(tmplName).Funcs(funcMap(r.ctx)).Parse(string(tmplContent))
+		tmpl, err = template.New(tmplName).Funcs(r.funcMap()).Parse(string(tmplContent))
 		if err != nil {
 			return err
 		}

@@ -6,8 +6,6 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
-
-	"github.com/huangjunwen/sqlw/dbctx"
 )
 
 var (
@@ -34,7 +32,9 @@ func camel(s string, upper bool) string {
 	return strings.Join(parts, "")
 }
 
-func funcMap(ctx *dbctx.DBContext) template.FuncMap {
+func (r *Renderer) funcMap() template.FuncMap {
+
+	ctx := r.ctx
 
 	return template.FuncMap{
 		"UpperCamel": func(s string) string {
@@ -54,7 +54,32 @@ func funcMap(ctx *dbctx.DBContext) template.FuncMap {
 		},
 
 		"ScanType": func(typ *sql.ColumnType) (string, error) {
-			return ctx.Drv().ScanType(typ)
+			primitiveScanType, err := ctx.Drv().PrimitiveScanType(typ)
+			if err != nil {
+				return "", err
+			}
+
+			nullable, ok := typ.Nullable()
+			if !ok {
+				return "", fmt.Errorf("Nullable test not supported for driver %+q", ctx.DriverName())
+			}
+
+			ms := r.scanTypeMap
+			if ms == nil {
+				ms = DefaultScanTypeMap
+			}
+
+			m := ms[0]
+			if nullable {
+				m = ms[1]
+			}
+
+			scanType, found := m[primitiveScanType]
+			if !found {
+				return "", fmt.Errorf("Can't get scan type for %+q", primitiveScanType)
+			}
+
+			return scanType, nil
 		},
 	}
 }

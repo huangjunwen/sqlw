@@ -250,23 +250,34 @@ func (driver mysqlDriver) ExtractFK(conn *sql.DB, tableName string, fkName strin
 
 }
 
-func (driver mysqlDriver) ScanType(typ *sql.ColumnType) (string, error) {
+func (driver mysqlDriver) PrimitiveScanType(typ *sql.ColumnType) (string, error) {
 	switch typ.ScanType() {
-	case scanTypeFloat32, scanTypeFloat64, scanTypeNullFloat:
-		return "null.Float", nil
-
-	case scanTypeInt8, scanTypeInt16, scanTypeInt32, scanTypeInt64, scanTypeUint8, scanTypeUint16, scanTypeUint32, scanTypeUint64, scanTypeNullInt:
-		return "null.Int", nil
-
-	case scanTypeNullTime:
-		return "null.Time", nil
-
+	case scanTypeFloat32:
+		return "float32", nil
+	case scanTypeFloat64, scanTypeNullFloat:
+		return "float64", nil
+	case scanTypeInt8:
+		return "int8", nil
+	case scanTypeInt16:
+		return "int16", nil
+	case scanTypeInt32:
+		return "int32", nil
+	case scanTypeInt64, scanTypeNullInt:
+		return "int64", nil
+	case scanTypeUint8:
+		return "uint8", nil
+	case scanTypeUint16:
+		return "uint16", nil
+	case scanTypeUint32:
+		return "uint32", nil
+	case scanTypeUint64:
+		return "uint64", nil
 	case scanTypeRawBytes:
-		return "null.String", nil
-
-	default:
-		return "", fmt.Errorf("Not support column type %s", typ.ScanType().String())
+		return "[]byte", nil
+	case scanTypeNullTime:
+		return "time.Time", nil
 	}
+	return "", fmt.Errorf("Not support column type %s", typ.ScanType().String())
 }
 
 func extractDBName(conn *sql.DB) (string, error) {
