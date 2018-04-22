@@ -3,59 +3,61 @@ package {{ .PackageName }}
 import (
   "fmt"
   "strings"
-
-	"gopkg.in/guregu/null.v3"
+  "database/sql/driver"
 )
 
-func valueOrNil(val interface{}) interface{} {
-  switch v := val.(type) {
-  case null.Bool:
-    if v.Ptr() == nil {
-      return nil
-    }
-    return *v.Ptr()
-
-  case null.Float:
-    if v.Ptr() == nil {
-      return nil
-    }
-    return *v.Ptr()
-
-  case null.Int:
-    if v.Ptr() == nil {
-      return nil
-    }
-    return *v.Ptr()
-
-  case null.String:
-    if v.Ptr() == nil {
-      return nil
-    }
-    return *v.Ptr()
-
-  case null.Time:
-    if v.Ptr() == nil {
-      return nil
-    }
-    return *v.Ptr()
+func isNull(val interface{}) bool {
+  if val == nil {
+    return true
   }
-  return val
+  switch v := val.(type) {
+  case driver.Valuer:
+    x, err := v.Value()
+    if err != nil {
+      panic(err)
+    }
+    return x == nil
+  default:
+    return false
+  }
 }
 
 func buildInsert(entry TableEntry) (string, []interface{}) {
+  info := entry.TableInfo()
   cols := []string{}
   phs := []string{}
-  vals := []interface{}{}
+  args := []interface{}{}
 
-  for i, val := range entry.ColumnValues() {
-    if val == nil {
+  for i:=0; i<info.NumColumn(); i++ {
+    val := entry.ColumnValue(i)
+    if isNull(val) {
       continue
     }
-    cols = append(cols, entry.ColumnNames()[i])
+    cols = append(cols, info.ColumnName(i))
     phs = append(phs, "?")
-    vals = append(vals, val)
+    args = append(args, val)
   }
 
-  return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", entry.TableName(), strings.Join(cols, ", "), strings.Join(phs, ", ")), vals
+  return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", info.TableName(), strings.Join(cols, ", "), strings.Join(phs, ", ")), args
 
 }
+
+/*
+func buildUpdate(entry, newEntry TableEntry) (string, []interface{}) {
+  fragments := []string{
+    "UPDATE ",
+    entry.TableName(),
+    " SET ",
+  }
+  vals := entry.ColumnValues()
+  newVals := newEntry.ColumnValues()
+  args := []interface{}{}
+  
+  for i, col := range entry.ColumnNames() {
+    if vals[i] != newVals[i] {
+      fragments = append(fragments, col)
+      fragments = append(fragments, "=?")
+    }
+  }
+}
+*/

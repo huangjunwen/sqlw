@@ -2,6 +2,7 @@ package {{ .PackageName }}
 
 import (
   "context"
+  "fmt"
 
 	"gopkg.in/guregu/null.v3"
 )
@@ -17,41 +18,38 @@ type {{ $upperTableName }} struct {
 	{{ end }}
 }
 
-func ({{ $lowerTableName }} *{{ $upperTableName }}) TableName() string {
-  return "{{ $tableName }}"
-}
-
 var (
-  {{ $lowerTableName }}ColumnNames = []string{
-  {{ range $column := .Table.Columns -}}
-    "{{ $column.ColumnName }}",
-  {{ end }}
+  {{ $lowerTableName }}TableInfo = &TableInfo{
+    tableName: "{{ $tableName }}",
+    columnNames: []string{
+    {{- range $column := .Table.Columns -}}
+      "{{ $column.ColumnName }}",
+    {{- end -}}
+    },
+    primaryColumnsPos: []int{
+    {{- if .Table.Primary.Valid -}}
+    {{- range $column := .Table.Primary.Columns -}}
+      {{ $column.Pos }},
+    {{- end -}}
+    {{- end -}}
+    },
+    autoIncColumnPos: {{ if .Table.AutoIncColumn.Valid }}{{ .Table.AutoIncColumn.Pos }}{{ else }}-1{{ end }},
   }
 )
 
-func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnNames() []string {
-  return {{ $lowerTableName }}ColumnNames
+// TableInfo() returns table meta information.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) TableInfo() *TableInfo {
+  return {{ $lowerTableName }}TableInfo
 }
 
-var (
-  {{ $lowerTableName }}PrimaryColumnNames = []string{
-  {{ if $primary.Valid -}}
-  {{ range $column := $primary.Columns -}}
-    "{{ $column.ColumnName }}",
-  {{ end }}
+// ColumnValue() returns the i-th column's value.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValue(i int) interface{} {
+  switch i {
+  {{ range $column := .Table.Columns -}}
+  case {{ $column.Pos }}: return {{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}
   {{ end -}}
-  }
-)
-
-func ({{ $lowerTableName }} *{{ $upperTableName }}) PrimaryColumnNames() []string {
-  return {{ $lowerTableName }}PrimaryColumnNames
-}
-
-func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValues() []interface{} {
-  return []interface{}{
-  {{ range $column := .Table.Columns -}}
-    valueOrNil({{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}),
-  {{ end }}
+  default:
+    panic(fmt.Errorf("Bad column pos %d for table {{ $tableName }}", i))
   }
 }
 
@@ -86,3 +84,4 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Update(ctx context.Context, 
 }
 
 {{ end }}
+
