@@ -2,7 +2,6 @@ package {{ .PackageName }}
 
 import (
   "fmt"
-  "strings"
   "database/sql/driver"
 )
 
@@ -23,9 +22,10 @@ func isNull(val interface{}) bool {
 }
 
 func buildInsert(entry TableEntry) (string, []interface{}) {
+
   info := entry.TableInfo()
-  cols := []string{}
-  phs := []string{}
+  cols := []byte{}
+  phs := []byte{}
   args := []interface{}{}
 
   for i:=0; i<info.NumColumn(); i++ {
@@ -33,31 +33,73 @@ func buildInsert(entry TableEntry) (string, []interface{}) {
     if isNull(val) {
       continue
     }
-    cols = append(cols, info.ColumnName(i))
-    phs = append(phs, "?")
+    if len(args) != 0 {
+      cols = append(cols, ", "...)
+      phs = append(phs, ", "...)
+    }
+    cols = append(cols, info.ColumnName(i)...)
+    phs = append(phs, '?')
     args = append(args, val)
   }
 
-  return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", info.TableName(), strings.Join(cols, ", "), strings.Join(phs, ", ")), args
+  return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", info.TableName(), cols, phs), args
 
 }
 
-/*
-func buildUpdate(entry, newEntry TableEntry) (string, []interface{}) {
-  fragments := []string{
-    "UPDATE ",
-    entry.TableName(),
-    " SET ",
+func buildUpdate(entry, newEntry TableEntry) (string, []interface{}, error) {
+
+  info := entry.TableInfo()
+  if info != newEntry.TableInfo() {
+    panic(fmt.Errorf("Update with two different tables' entries"))
   }
-  vals := entry.ColumnValues()
-  newVals := newEntry.ColumnValues()
-  args := []interface{}{}
-  
-  for i, col := range entry.ColumnNames() {
-    if vals[i] != newVals[i] {
-      fragments = append(fragments, col)
-      fragments = append(fragments, "=?")
+
+  assignmentList := []byte{}
+  assignmentArgs := []interface{}{}
+  primaryList := []byte{}
+  primaryArgs := []interface{}{}
+
+  for i:=0; i<info.NumColumn(); i++ {
+    
+    columnName := info.ColumnName(i)
+    val := entry.ColumnValue(i)
+    newVal := entry.ColumnValue(i)
+
+    if info.IsPrimaryColumn(i) {
+      if val != newVal {
+        return "", nil, fmt.Errorf("Update: new entry have a different primary key")
+      }
+      // NOTE: Every column in primary key must have not-null value. 
+      if isNull(val) {
+        return "", nil, fmt.Errorf("Update: invalid entries (primary key is NULL)")
+      }
+      if len(primaryArgs) != 0 {
+        primaryList = append(primaryList, " AND "...)
+      }
+      primaryList = append(primaryList, columnName...)
+      primaryList = append(primaryList, "=?"...)
+      primaryArgs = append(primaryArgs, val)
+      continue
     }
+
+    if val == newVal {
+      // Skip.
+      continue
+    }
+
+    if len(assignmentArgs) == 0 {
+      assignmentList = append(assignmentList, ", "...)
+    }
+    assignmentList = append(assignmentList, columnName...)
+    assignmentList = append(assignmentList, "=?"...)
+    assignmentArgs = append(assignmentArgs, newVal)
+
   }
+
+  // All values are the same.
+  if len(assignmentArgs) == 0 {
+    return "", nil, nil
+  }
+
+  return fmt.Sprintf("UPDATE %s SET %s WHERE %s", info.TableName(), assignmentList, primaryList), append(assignmentArgs, primaryArgs...), nil
+
 }
-*/
