@@ -5,13 +5,14 @@ import (
 	"io"
 )
 
-type manifest struct {
-	ScanTypeMap string   `json:"scan_type_map"`
-	Templates   []string `json:"templates"`
+type Manifest struct {
+	ScanTypeMap    string   `json:"scan_type_map"`
+	TableTemplate  string   `json:"table_tmpl"`
+	ExtraTemplates []string `json:"extra_tmpls"`
 }
 
-func newManifest(r io.Reader) (*manifest, error) {
-	ret := &manifest{}
+func NewManifest(r io.Reader) (*Manifest, error) {
+	ret := &Manifest{}
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(ret); err != nil {
 		return nil, err

@@ -14,11 +14,6 @@ import (
 	"github.com/huangjunwen/sqlw/dbctx"
 )
 
-const (
-	tableTmplName = "table.tmpl" // Used to render each table.
-	stmtTmplName  = "stmt.tmpl"  // Used to render each statement.
-)
-
 // Renderer is used for generating code.
 type Renderer struct {
 	// Options
@@ -124,7 +119,7 @@ func (r *Renderer) Run() error {
 	}
 	defer manifestFile.Close()
 
-	manifest, err := newManifest(manifestFile)
+	manifest, err := NewManifest(manifestFile)
 	if err != nil {
 		return err
 	}
@@ -146,8 +141,11 @@ func (r *Renderer) Run() error {
 	}
 
 	// Render tables.
+	if manifest.TableTemplate == "" {
+		return fmt.Errorf("Missing 'table_tmpl' in manifest.json")
+	}
 	for _, table := range r.ctx.DB().Tables() {
-		if err := r.render(tableTmplName, table.TableName()+".go", map[string]interface{}{
+		if err := r.render(manifest.TableTemplate, table.TableName()+".go", map[string]interface{}{
 			"Table":       table,
 			"DBContext":   r.ctx,
 			"PackageName": r.outputPkg,
@@ -159,20 +157,9 @@ func (r *Renderer) Run() error {
 	// TODO Render statements.
 
 	// Render extra files.
-	for _, tmplName := range manifest.Templates {
-		// Skip.
-		switch tmplName {
-		case tableTmplName, stmtTmplName:
-			continue
-		}
-
-		// Not ends with ".tmpl"
-		if !strings.HasSuffix(tmplName, ".tmpl") {
-			return fmt.Errorf("Template name does not ends with '.tmpl'")
-		}
-
+	for _, tmplName := range manifest.ExtraTemplates {
 		// Render.
-		fileName := tmplName[:len(tmplName)-5] + ".go"
+		fileName := strings.Split(tmplName, ".")[0] + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{
 			"DBContext":   r.ctx,
 			"PackageName": r.outputPkg,
