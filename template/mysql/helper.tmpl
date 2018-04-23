@@ -53,9 +53,9 @@ func buildUpdate(entry, newEntry TableEntry) (string, []interface{}, error) {
     panic(fmt.Errorf("Update with two different tables' entries"))
   }
 
-  assignmentList := []byte{}
+  assignmentList := []byte{} // "col1=?, col2=?, ..."
   assignmentArgs := []interface{}{}
-  primaryList := []byte{}
+  primaryList := []byte{} // "id1=? AND id2=? AND ..."
   primaryArgs := []interface{}{}
 
   for i:=0; i<info.NumColumn(); i++ {
@@ -64,40 +64,49 @@ func buildUpdate(entry, newEntry TableEntry) (string, []interface{}, error) {
     val := entry.ColumnValue(i)
     newVal := entry.ColumnValue(i)
 
-    if info.IsPrimaryColumn(i) {
-      if val != newVal {
-        return "", nil, fmt.Errorf("Update: new entry have a different primary key")
+    // --- Normal column ---
+    if !info.IsPrimaryColumn(i) {
+      if val == newVal {
+        // Skip.
+        continue
       }
-      // NOTE: Every column in primary key must have not-null value. 
-      if isNull(val) {
-        return "", nil, fmt.Errorf("Update: invalid entries (primary key is NULL)")
+
+      if len(assignmentList) != 0 {
+        assignmentList = append(assignmentList, ", "...)
       }
-      if len(primaryArgs) != 0 {
-        primaryList = append(primaryList, " AND "...)
-      }
-      primaryList = append(primaryList, columnName...)
-      primaryList = append(primaryList, "=?"...)
-      primaryArgs = append(primaryArgs, val)
+      assignmentList = append(assignmentList, columnName...)
+      assignmentList = append(assignmentList, "=?"...)
+      assignmentArgs = append(assignmentArgs, newVal)
       continue
     }
 
-    if val == newVal {
-      // Skip.
-      continue
+    // --- Primary column ---
+    // Both entries should have the same primary key.
+    if val != newVal {
+      return "", nil, fmt.Errorf("Update: new entry have a different primary key")
     }
 
-    if len(assignmentArgs) == 0 {
+    // Every column in primary key must have not-null value. 
+    if isNull(val) {
+      return "", nil, fmt.Errorf("Update: invalid entries (primary key is NULL)")
+    }
+
+    // Add " id1=? AND ..." in where clause.
+    if len(primaryList) != 0 {
+      primaryList = append(primaryList, " AND "...)
+    }
+    primaryList = append(primaryList, columnName...)
+    primaryList = append(primaryList, "=?"...)
+    primaryArgs = append(primaryArgs, val)
+
+    // Add " id1=id1, ..." in assignment list as a no-op.
+    if len(assignmentList) != 0 {
       assignmentList = append(assignmentList, ", "...)
     }
     assignmentList = append(assignmentList, columnName...)
-    assignmentList = append(assignmentList, "=?"...)
-    assignmentArgs = append(assignmentArgs, newVal)
+    assignmentList = append(assignmentList, "="...)
+    assignmentList = append(assignmentList, columnName...)
 
-  }
-
-  // All values are the same.
-  if len(assignmentArgs) == 0 {
-    return "", nil, nil
   }
 
   return fmt.Sprintf("UPDATE %s SET %s WHERE %s", info.TableName(), assignmentList, primaryList), append(assignmentArgs, primaryArgs...), nil

@@ -86,9 +86,8 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Insert(ctx context.Context, 
 
 {{ if $primary.Valid }}
 
-// Update() updates columns that have different values. Return true if the row is successfully updated or 
-// there is no need to update at all. In this case values in `{{ $lowerTableName }}` will be 
-// updated to `new{{ $upperTableName }}` as well.
+// Update() updates columns that have different values. Return true if the row is successfully updated.
+// In this case values in `{{ $lowerTableName }}` will be updated to `new{{ $upperTableName }}` as well.
 //
 // Update() returns false if there is an error occured or no matched row updated.
 // 
@@ -97,10 +96,6 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Update(ctx context.Context, 
   query, args, err := buildUpdate({{ $lowerTableName }}, new{{ $upperTableName }})
   if err != nil {
     return false, err
-  }
-  if query == "" {
-    // No chnage thus no need to touch database.
-    return true, nil
   }
 
   r, err := e.ExecContext(ctx, query, args...)
