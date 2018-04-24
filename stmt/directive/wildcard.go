@@ -208,9 +208,13 @@ func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, result
 		} else {
 			wildcardColumn := currentDirective.table.Column(currentColumnPos)
 			currentColumnPos += 1
-			if wildcardColumn.ColumnType().ScanType() != resultColumnType.ScanType() {
-				panic(fmt.Errorf("Wildcard column type mismatch"))
-			}
+			// NOTE: In left outer join, the same column may have different ScanType()
+			// since the outer table can have null value even the original column can not.
+			/*
+				if wildcardColumn.ColumnType().ScanType() != resultColumnType.ScanType() {
+					panic(fmt.Errorf("Wildcard column type mismatch"))
+				}
+			*/
 			info.wildcardColumns = append(info.wildcardColumns, wildcardColumn)
 			info.wildcardAliases = append(info.wildcardAliases, currentDirective.tableAlias)
 		}

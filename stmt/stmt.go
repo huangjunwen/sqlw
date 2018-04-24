@@ -112,7 +112,7 @@ func (info *StmtInfo) processStmtElem(ctx *dbctx.DBContext, stmtElem *etree.Elem
 		case *etree.Element:
 			factory := directiveFactories[tok.Tag]
 			if factory == nil {
-				return fmt.Errorf("Unknown directive <%q>", tok.Tag)
+				return fmt.Errorf("Unknown directive <%s>", tok.Tag)
 			}
 			directive = factory()
 		}

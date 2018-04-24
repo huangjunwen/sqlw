@@ -4,12 +4,14 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
 	"path"
 
-	"github.com/huangjunwen/sqlw/dbctx"
 	_ "github.com/huangjunwen/sqlw/driver/mysql"
+
+	"github.com/huangjunwen/sqlw/dbctx"
 	"github.com/huangjunwen/sqlw/render"
-	"net/http"
+	_ "github.com/huangjunwen/sqlw/stmt/directive"
 )
 
 type PrefixFS struct {
