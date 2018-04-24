@@ -6,9 +6,10 @@ import (
 )
 
 type Manifest struct {
-	ScanTypeMap    string   `json:"scan_type_map"`
-	TableTemplate  string   `json:"table_tmpl"`
-	ExtraTemplates []string `json:"extra_tmpls"`
+	ScanTypeMap    string   `json:"scan_type_map"` // optional
+	TableTemplate  string   `json:"table_tmpl"`    // required
+	StmtTemplate   string   `json:"stmt_tmpl"`     // required
+	ExtraTemplates []string `json:"extra_tmpls"`   // optional
 }
 
 func NewManifest(r io.Reader) (*Manifest, error) {

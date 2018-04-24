@@ -1,6 +1,7 @@
 {
   "scan_type_map": "scan_type_map.json",
   "table_tmpl": "table.tmpl",
+  "stmt_tmpl": "stmt.tmpl",
   "extra_tmpls": [
     "type.tmpl",
     "helper.tmpl"

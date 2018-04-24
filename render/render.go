@@ -11,7 +11,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/stmt"
 )
 
 // Renderer is used for generating code.
@@ -154,7 +156,47 @@ func (r *Renderer) Run() error {
 		}
 	}
 
-	// TODO Render statements.
+	// Render statements.
+	if manifest.StmtTemplate == "" {
+		return fmt.Errorf("Missing 'stmt_tmpl' in manifest.json")
+	}
+	if r.stmtDir != "" {
+		stmtFileInfos, err := ioutil.ReadDir(r.stmtDir)
+		if err != nil {
+			return err
+		}
+		for _, stmtFileInfo := range stmtFileInfos {
+			if stmtFileInfo.IsDir() {
+				continue
+			}
+			stmtFileName := stmtFileInfo.Name()
+			if !strings.HasSuffix(stmtFileName, ".xml") {
+				continue
+			}
+			doc := etree.NewDocument()
+			if err := doc.ReadFromFile(path.Join(r.stmtDir, stmtFileName)); err != nil {
+				return err
+			}
+
+			stmtInfos := []*stmt.StmtInfo{}
+			for _, elem := range doc.ChildElements() {
+				stmtInfo, err := stmt.NewStmtInfo(r.ctx, elem)
+				if err != nil {
+					return err
+				}
+				stmtInfos = append(stmtInfos, stmtInfo)
+			}
+
+			if err := r.render(manifest.StmtTemplate, strings.Split(stmtFileName, ".")[0]+".go", map[string]interface{}{
+				"Stmts":       stmtInfos,
+				"DBContext":   r.ctx,
+				"PackageName": r.outputPkg,
+			}); err != nil {
+				return err
+			}
+
+		}
+	}
 
 	// Render extra files.
 	for _, tmplName := range manifest.ExtraTemplates {
