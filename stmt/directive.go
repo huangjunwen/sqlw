@@ -2,14 +2,16 @@ package stmt
 
 import (
 	"database/sql"
+
 	"github.com/beevik/etree"
+
 	"github.com/huangjunwen/sqlw/dbctx"
 )
 
-// StmtDirective represents a fragment of a statement.
-type StmtDirective interface {
+// Directive represents a fragment of a statement.
+type Directive interface {
 	// Initialize() initialize the directive.
-	Initialize(ctx *dbctx.DBContext, stmt *StmtInfo, tok etree.Token) error
+	Initialize(ctx *dbctx.DBContext, stmt *StatementInfo, tok etree.Token) error
 
 	// Generate() should generate the text fragment.
 	Generate() (string, error)
@@ -33,10 +35,10 @@ type textDirective struct {
 
 var (
 	// Map tag name -> factory
-	directiveFactories = map[string]func() StmtDirective{}
+	directiveFactories = map[string]func() Directive{}
 )
 
-func (d *textDirective) Initialize(ctx *dbctx.DBContext, stmt *StmtInfo, tok etree.Token) error {
+func (d *textDirective) Initialize(ctx *dbctx.DBContext, stmt *StatementInfo, tok etree.Token) error {
 	d.data = tok.(*etree.CharData).Data
 	return nil
 }
@@ -53,8 +55,8 @@ func (d *textDirective) ProcessQueryResult(resultColumnNames *[]string, resultCo
 	return nil
 }
 
-// RegistStmtDirectiveFactory() regist directive factories.
-func RegistStmtDirectiveFactory(factory func() StmtDirective, tags ...string) {
+// RegistDirectiveFactory regist directive factories.
+func RegistDirectiveFactory(factory func() Directive, tags ...string) {
 	for _, tag := range tags {
 		directiveFactories[tag] = factory
 	}

@@ -5,16 +5,17 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
-	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlw/dbctx"
-	"github.com/huangjunwen/sqlw/stmt"
 	"strconv"
 	"strings"
+
+	"github.com/beevik/etree"
+
+	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/stmt"
 )
 
 type wildcardDirective struct {
-	stmt       *stmt.StmtInfo
-	tableName  string
+	statement  *stmt.StatementInfo
 	table      *dbctx.TableInfo
 	tableAlias string
 }
@@ -25,8 +26,9 @@ var (
 	wildcardDirectiveLocalsKey = wildcardDirectiveLocalsKeyType{}
 )
 
+// WildcardInfo contain wildcard information in a statement.
 type WildcardInfo struct {
-	// len(wildcardColumns) == len(resultColumns)
+	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
 	wildcardColumns []*dbctx.ColumnInfo
 	wildcardAliases []string
 
@@ -38,7 +40,7 @@ type WildcardInfo struct {
 func (d *wildcardDirective) expansion() string {
 	prefix := d.tableAlias
 	if prefix == "" {
-		prefix = d.tableName
+		prefix = d.table.TableName()
 	}
 
 	fragments := []string{}
@@ -49,22 +51,23 @@ func (d *wildcardDirective) expansion() string {
 		column := d.table.Column(i)
 		fragments = append(fragments, fmt.Sprintf("%s.%s", prefix, column.ColumnName()))
 	}
+
 	return strings.Join(fragments, "")
 
 }
 
 func (d *wildcardDirective) directiveLocals() *WildcardInfo {
-	// All wildcardDirective in a stmt share a same WildcardInfo.
-	locals := d.stmt.DirectiveLocals(wildcardDirectiveLocalsKey)
+	// All wildcardDirective in a statement share the same WildcardInfo.
+	locals := d.statement.DirectiveLocals(wildcardDirectiveLocalsKey)
 	if locals != nil {
 		return locals.(*WildcardInfo)
 	}
 	ret := newWildcardInfo()
-	d.stmt.SetDirectiveLocals(wildcardDirectiveLocalsKey, ret)
+	d.statement.SetDirectiveLocals(wildcardDirectiveLocalsKey, ret)
 	return ret
 }
 
-func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *stmt.StmtInfo, tok etree.Token) error {
+func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, statement *stmt.StatementInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	tableName := elem.SelectAttrValue("table", "")
@@ -79,8 +82,7 @@ func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *stmt.StmtInfo
 
 	as := elem.SelectAttrValue("as", "")
 
-	d.stmt = stmt
-	d.tableName = tableName
+	d.statement = statement
 	d.table = table
 	d.tableAlias = as
 	return nil
@@ -111,8 +113,8 @@ func newWildcardInfo() *WildcardInfo {
 }
 
 // ExtractWildcardInfo() extract wildcard information from a statement or nil if not exists.
-func ExtractWildcardInfo(stmt *stmt.StmtInfo) *WildcardInfo {
-	locals := stmt.DirectiveLocals(wildcardDirectiveLocalsKey)
+func ExtractWildcardInfo(statement *stmt.StatementInfo) *WildcardInfo {
+	locals := statement.DirectiveLocals(wildcardDirectiveLocalsKey)
 	if locals != nil {
 		return locals.(*WildcardInfo)
 	}
@@ -228,6 +230,8 @@ func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, result
 	return nil
 }
 
+// WildcardColumn returns the table column info for the i-th result column
+// if it is from a <wildcard> directive or nil otherwise.
 func (info *WildcardInfo) WildcardColumn(i int) *dbctx.ColumnInfo {
 	if info == nil {
 		return nil
@@ -235,6 +239,8 @@ func (info *WildcardInfo) WildcardColumn(i int) *dbctx.ColumnInfo {
 	return info.wildcardColumns[i]
 }
 
+// WildcardAlias returns the table alias name for the i-th result column
+// if it is from a <wildcard> directive or "" otherwise.
 func (info *WildcardInfo) WildcardAlias(i int) string {
 	if info == nil {
 		return ""
@@ -242,12 +248,13 @@ func (info *WildcardInfo) WildcardAlias(i int) string {
 	return info.wildcardAliases[i]
 }
 
+// Valid return true if this is a non-nil WildcardInfo.
 func (info *WildcardInfo) Valid() bool {
 	return info != nil
 }
 
 func init() {
-	stmt.RegistStmtDirectiveFactory(func() stmt.StmtDirective {
+	stmt.RegistDirectiveFactory(func() stmt.Directive {
 		return &wildcardDirective{}
 	}, "wildcard")
 }

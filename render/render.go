@@ -178,9 +178,9 @@ func (r *Renderer) Run() error {
 				return err
 			}
 
-			stmtInfos := []*stmt.StmtInfo{}
+			stmtInfos := []*stmt.StatementInfo{}
 			for _, elem := range doc.ChildElements() {
-				stmtInfo, err := stmt.NewStmtInfo(r.ctx, elem)
+				stmtInfo, err := stmt.NewStatementInfo(r.ctx, elem)
 				if err != nil {
 					return err
 				}

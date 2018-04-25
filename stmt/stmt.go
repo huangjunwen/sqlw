@@ -3,17 +3,16 @@ package stmt
 import (
 	"database/sql"
 	"fmt"
-	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlw/dbctx"
 	"strings"
+
+	"github.com/beevik/etree"
+
+	"github.com/huangjunwen/sqlw/dbctx"
 )
 
-type StmtInfo struct {
+type StatementInfo struct {
 	stmtType        string // 'SELECT'/'UPDATE'/'INSERT'/'DELETE'
 	stmtName        string
-	argNames        []string
-	argTypes        []string
-	env             map[string]string
 	stmtText        string
 	directiveLocals map[interface{}]interface{}
 
@@ -22,88 +21,42 @@ type StmtInfo struct {
 	resultColumnTypes []*sql.ColumnType
 }
 
-var (
-	pathArg  = etree.MustCompilePath("./arg")
-	pathEnv  = etree.MustCompilePath("./env")
-	pathStmt = etree.MustCompilePath("./stmt[1]")
-)
-
-func NewStmtInfo(ctx *dbctx.DBContext, elem *etree.Element) (*StmtInfo, error) {
-	stmtInfo := &StmtInfo{
-		env:             map[string]string{},
+func NewStatementInfo(ctx *dbctx.DBContext, elem *etree.Element) (*StatementInfo, error) {
+	info := &StatementInfo{
 		directiveLocals: map[interface{}]interface{}{},
 	}
 
 	// Element's tag as type
-	stmtInfo.stmtType = strings.ToUpper(elem.Tag)
-	switch stmtInfo.stmtType {
+	info.stmtType = strings.ToUpper(elem.Tag)
+	switch info.stmtType {
 	case "SELECT", "UPDATE", "INSERT", "DELETE":
 	default:
-		return nil, fmt.Errorf("Unknown statement type %+q", stmtInfo.stmtType)
+		return nil, fmt.Errorf("Unknown statement type %+q", info.stmtType)
 	}
 
-	// name attribute
-	stmtInfo.stmtName = elem.SelectAttrValue("name", "")
-	if stmtInfo.stmtName == "" {
-		return nil, fmt.Errorf("Missing 'name' attribute of <%q>", stmtInfo.stmtType)
+	// Name attribute
+	info.stmtName = elem.SelectAttrValue("name", "")
+	if info.stmtName == "" {
+		return nil, fmt.Errorf("Missing 'name' attribute of <%q>", info.stmtType)
 	}
 
-	// args
-	argNames := map[string]struct{}{}
-	for _, argElem := range elem.FindElementsPath(pathArg) {
-		argName := argElem.SelectAttrValue("name", "")
-		argType := argElem.SelectAttrValue("type", "")
-		if argName == "" {
-			return nil, fmt.Errorf("Missing 'name' attribute of <arg> in statement %+q", stmtInfo.stmtName)
-		}
-		if _, ok := argNames[argName]; ok {
-			return nil, fmt.Errorf("Duplicate arg name %+q in statement %+q", argName, stmtInfo.stmtName)
-		}
-		argNames[argName] = struct{}{}
-		if argType == "" {
-			return nil, fmt.Errorf("Missing 'type' attribute of <arg name='%q'> in statement %+q", argName, stmtInfo.stmtName)
-		}
-		stmtInfo.argNames = append(stmtInfo.argNames, argName)
-		stmtInfo.argTypes = append(stmtInfo.argTypes, argType)
-	}
-
-	// env
-	for _, envElem := range elem.FindElementsPath(pathEnv) {
-		envName := envElem.SelectAttrValue("name", "")
-		envValue := envElem.SelectAttrValue("value", "")
-		if envName == "" {
-			return nil, fmt.Errorf("Missing 'name' attribute of <env> in statement %+q", stmtInfo.stmtName)
-		}
-		if _, ok := stmtInfo.env[envName]; ok {
-			return nil, fmt.Errorf("Duplicate env name %+q in statement %+q", envName, stmtInfo.stmtName)
-		}
-		if envValue == "" {
-			return nil, fmt.Errorf("Missing 'value' attribute of <env name='%q'> in statement %+q", envName, stmtInfo.stmtName)
-		}
-		stmtInfo.env[envName] = envValue
-	}
-
-	// stmt
-	stmtElem := elem.FindElementPath(pathStmt)
-	if stmtElem == nil {
-		return nil, fmt.Errorf("Missng <stmt> in statement %+q", stmtInfo.stmtName)
-	}
-	if err := stmtInfo.processStmtElem(ctx, stmtElem); err != nil {
+	// Process it.
+	if err := info.processElem(ctx, elem); err != nil {
 		return nil, err
 	}
 
-	return stmtInfo, nil
+	return info, nil
 
 }
 
-func (info *StmtInfo) processStmtElem(ctx *dbctx.DBContext, stmtElem *etree.Element) error {
+func (info *StatementInfo) processElem(ctx *dbctx.DBContext, elem *etree.Element) error {
 
-	// Convert stmtElem to a list of StmtDirective
-	directives := []StmtDirective{}
+	// Convert elem to a list of StmtDirective
+	directives := []Directive{}
 
-	for _, t := range stmtElem.Child {
+	for _, t := range elem.Child {
 
-		directive := StmtDirective(nil)
+		directive := Directive(nil)
 
 		switch tok := t.(type) {
 		case *etree.CharData:
@@ -189,54 +142,38 @@ func (info *StmtInfo) processStmtElem(ctx *dbctx.DBContext, stmtElem *etree.Elem
 	return nil
 }
 
-func (info *StmtInfo) Valid() bool {
+func (info *StatementInfo) Valid() bool {
 	return info != nil
 }
 
-func (info *StmtInfo) String() string {
+func (info *StatementInfo) String() string {
 	return info.stmtName
 }
 
-func (info *StmtInfo) StmtName() string {
+func (info *StatementInfo) StmtName() string {
 	return info.stmtName
 }
 
-func (info *StmtInfo) NumArg() int {
-	return len(info.argNames)
-}
-
-func (info *StmtInfo) ArgName(i int) string {
-	return info.argNames[i]
-}
-
-func (info *StmtInfo) ArgType(i int) string {
-	return info.argTypes[i]
-}
-
-func (info *StmtInfo) Env(name string) string {
-	return info.env[name]
-}
-
-func (info *StmtInfo) StmtType() string {
+func (info *StatementInfo) StmtType() string {
 	return info.stmtType
 }
 
-func (info *StmtInfo) NumResultColumn() int {
+func (info *StatementInfo) NumResultColumn() int {
 	return len(info.resultColumnNames)
 }
 
-func (info *StmtInfo) ResultColumnName(i int) string {
+func (info *StatementInfo) ResultColumnName(i int) string {
 	return info.resultColumnNames[i]
 }
 
-func (info *StmtInfo) ResultColumnType(i int) *sql.ColumnType {
+func (info *StatementInfo) ResultColumnType(i int) *sql.ColumnType {
 	return info.resultColumnTypes[i]
 }
 
-func (info *StmtInfo) DirectiveLocals(key interface{}) interface{} {
+func (info *StatementInfo) DirectiveLocals(key interface{}) interface{} {
 	return info.directiveLocals[key]
 }
 
-func (info *StmtInfo) SetDirectiveLocals(key, val interface{}) {
+func (info *StatementInfo) SetDirectiveLocals(key, val interface{}) {
 	info.directiveLocals[key] = val
 }

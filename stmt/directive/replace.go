@@ -3,7 +3,9 @@ package directive
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/beevik/etree"
+
 	"github.com/huangjunwen/sqlw/dbctx"
 	"github.com/huangjunwen/sqlw/stmt"
 )
@@ -13,7 +15,7 @@ type replaceDirective struct {
 	with   string
 }
 
-func (d *replaceDirective) Initialize(ctx *dbctx.DBContext, stmt *stmt.StmtInfo, tok etree.Token) error {
+func (d *replaceDirective) Initialize(ctx *dbctx.DBContext, statement *stmt.StatementInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 	with := elem.SelectAttrValue("with", "")
 	if with == "" {
@@ -37,7 +39,7 @@ func (d *replaceDirective) ProcessQueryResult(resultColumnNames *[]string, resul
 }
 
 func init() {
-	stmt.RegistStmtDirectiveFactory(func() stmt.StmtDirective {
+	stmt.RegistDirectiveFactory(func() stmt.Directive {
 		return &replaceDirective{}
 	}, "replace")
 }
