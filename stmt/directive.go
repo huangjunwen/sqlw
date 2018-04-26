@@ -11,7 +11,7 @@ import (
 // Directive represents a fragment of a statement.
 type Directive interface {
 	// Initialize() initialize the directive.
-	Initialize(ctx *dbctx.DBContext, stmt *StatementInfo, tok etree.Token) error
+	Initialize(ctx *dbctx.DBContext, statement *StatementInfo, tok etree.Token) error
 
 	// Generate() should generate the text fragment.
 	Generate() (string, error)
