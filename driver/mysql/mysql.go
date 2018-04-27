@@ -3,16 +3,18 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
-	"github.com/huangjunwen/sqlw/driver"
 	"reflect"
+
+	"github.com/go-sql-driver/mysql"
+
+	"github.com/huangjunwen/sqlw/driver"
 )
 
 type mysqlDriver struct{}
 
 var (
-	_ driver.Driver            = mysqlDriver{}
-	_ driver.DriverWithAutoInc = mysqlDriver{}
+	_ driver.Drv            = mysqlDriver{}
+	_ driver.DrvWithAutoInc = mysqlDriver{}
 )
 
 var (
@@ -287,5 +289,5 @@ func extractDBName(conn *sql.DB) (string, error) {
 }
 
 func init() {
-	driver.RegistDriver("mysql", mysqlDriver{})
+	driver.RegistDrv("mysql", mysqlDriver{})
 }

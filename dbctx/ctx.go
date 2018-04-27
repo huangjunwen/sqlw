@@ -11,7 +11,7 @@ type DBContext struct {
 	driverName     string
 	dataSourceName string
 	conn           *sql.DB
-	drv            driver.Driver
+	drv            driver.Drv
 	db             *DBInfo
 }
 
@@ -22,7 +22,7 @@ func NewDBContext(driverName, dataSourceName string) (*DBContext, error) {
 		return nil, err
 	}
 
-	drv := driver.GetDriver(driverName)
+	drv := driver.GetDrv(driverName)
 	if drv == nil {
 		return nil, fmt.Errorf("Unsupported driver %+q", driverName)
 	}
@@ -58,7 +58,7 @@ func (ctx *DBContext) Conn() *sql.DB {
 }
 
 // Drv returns sqlw database driver.
-func (ctx *DBContext) Drv() driver.Driver {
+func (ctx *DBContext) Drv() driver.Drv {
 	return ctx.drv
 }
 

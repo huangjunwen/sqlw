@@ -52,9 +52,9 @@ type FKInfo struct {
 	refColumnNames []string
 }
 
-func newDBInfo(conn *sql.DB, drv driver.Driver) (*DBInfo, error) {
+func newDBInfo(conn *sql.DB, drv driver.Drv) (*DBInfo, error) {
 
-	_, supportAutoInc := drv.(driver.DriverWithAutoInc)
+	_, supportAutoInc := drv.(driver.DrvWithAutoInc)
 
 	db := &DBInfo{
 		tableNames: make(map[string]int),
@@ -93,7 +93,7 @@ func newDBInfo(conn *sql.DB, drv driver.Driver) (*DBInfo, error) {
 		}
 
 		if supportAutoInc {
-			autoIncColumnName, err := drv.(driver.DriverWithAutoInc).ExtractAutoIncColumn(conn, tableName)
+			autoIncColumnName, err := drv.(driver.DrvWithAutoInc).ExtractAutoIncColumn(conn, tableName)
 			if err != nil {
 				return nil, err
 			}
