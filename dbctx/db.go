@@ -6,11 +6,13 @@ import (
 	"github.com/huangjunwen/sqlw/driver"
 )
 
+// DBInfo contains information of a database.
 type DBInfo struct {
 	tables     []*TableInfo
 	tableNames map[string]int
 }
 
+// TableInfo contains information of a table.
 type TableInfo struct {
 	db            *DBInfo
 	tableName     string
@@ -24,6 +26,7 @@ type TableInfo struct {
 	autoIncColumn *ColumnInfo // nil if not exists
 }
 
+// ColumnInfo contains information of a column.
 type ColumnInfo struct {
 	table      *TableInfo
 	columnName string
@@ -31,6 +34,7 @@ type ColumnInfo struct {
 	pos        int // position in table
 }
 
+// IndexInfo contains information of an index.
 type IndexInfo struct {
 	table     *TableInfo
 	indexName string
@@ -39,6 +43,7 @@ type IndexInfo struct {
 	isUnique  bool
 }
 
+// FKInfo contains information of a foreign key constraint.
 type FKInfo struct {
 	fkName         string
 	table          *TableInfo
@@ -70,8 +75,7 @@ func newDBInfo(conn *sql.DB, drv driver.Driver) (*DBInfo, error) {
 			fkNames:     make(map[string]int),
 		}
 
-		// fill columns info
-
+		// Columns info
 		columnNames, columnTypes, err := drv.ExtractColumns(conn, tableName)
 		if err != nil {
 			return nil, err
@@ -98,8 +102,7 @@ func newDBInfo(conn *sql.DB, drv driver.Driver) (*DBInfo, error) {
 			}
 		}
 
-		// fill indices info
-
+		// Index info
 		indexNames, err := drv.ExtractIndexNames(conn, tableName)
 		if err != nil {
 			return nil, err
@@ -131,8 +134,7 @@ func newDBInfo(conn *sql.DB, drv driver.Driver) (*DBInfo, error) {
 			}
 		}
 
-		// fill fk info
-
+		// FK info
 		fkNames, err := drv.ExtractFKNames(conn, tableName)
 		if err != nil {
 			return nil, err
@@ -169,243 +171,344 @@ func newDBInfo(conn *sql.DB, drv driver.Driver) (*DBInfo, error) {
 
 }
 
+// Valid returns true if info != nil.
 func (info *DBInfo) Valid() bool {
 	return info != nil
 }
 
+// NumTable returns the number of table in the database. It returns 0 if info is nil.
 func (info *DBInfo) NumTable() int {
+	if info == nil {
+		return 0
+	}
 	return len(info.tables)
 }
 
+// Table returns the i-th table in the database. It returns nil if info is nil or i is out of range.
 func (info *DBInfo) Table(i int) *TableInfo {
+	if info == nil {
+		return nil
+	}
+	if i < 0 || i >= len(info.tables) {
+		return nil
+	}
 	return info.tables[i]
 }
 
+// Tables returns all tables in the database. It returns nil if info is nil.
 func (info *DBInfo) Tables() []*TableInfo {
+	if info == nil {
+		return nil
+	}
 	return info.tables
 }
 
-func (info *DBInfo) TableByName(tableName string) (tableInfo *TableInfo, found bool) {
+// TableByName returns the named table in the database. It returns nil if info is nil or table not found.
+func (info *DBInfo) TableByName(tableName string) *TableInfo {
+	if info == nil {
+		return nil
+	}
 	i, found := info.tableNames[tableName]
 	if !found {
-		return nil, false
+		return nil
 	}
-	return info.tables[i], true
+	return info.tables[i]
 }
 
-func (info *DBInfo) TableByNameM(tableName string) *TableInfo {
-	table, found := info.TableByName(tableName)
-	if !found {
-		panic(fmt.Errorf("Table %+q not found", tableName))
-	}
-	return table
-}
-
+// Valid returns true if info != nil.
 func (info *TableInfo) Valid() bool {
 	return info != nil
 }
 
+// String is the same of TableName.
 func (info *TableInfo) String() string {
+	return info.TableName()
+}
+
+// TableName returns the table name or "" if info is nil.
+func (info *TableInfo) TableName() string {
 	if info == nil {
-		return "<nil table>"
+		return ""
 	}
 	return info.tableName
 }
 
-func (info *TableInfo) TableName() string {
-	return info.tableName
-}
-
+// NumColumn returns the number of columns in the table or 0 if info is nil.
 func (info *TableInfo) NumColumn() int {
+	if info == nil {
+		return 0
+	}
 	return len(info.columns)
 }
 
+// Column returns the i-th column of the table. It returns nil if info is nil or i is out of range.
 func (info *TableInfo) Column(i int) *ColumnInfo {
+	if info == nil {
+		return nil
+	}
+	if i < 0 || i >= len(info.columns) {
+		return nil
+	}
 	return info.columns[i]
 }
 
+// Columns returns all columns in the table or nil if info is nil.
 func (info *TableInfo) Columns() []*ColumnInfo {
+	if info == nil {
+		return nil
+	}
 	return info.columns
 }
 
-func (info *TableInfo) ColumnByName(columnName string) (columnInfo *ColumnInfo, found bool) {
+// ColumnByName returns the named column. It returns nil if info is nil or not found.
+func (info *TableInfo) ColumnByName(columnName string) *ColumnInfo {
+	if info == nil {
+		return nil
+	}
 	i, found := info.columnNames[columnName]
 	if !found {
-		return nil, false
+		return nil
 	}
-	return info.columns[i], true
+	return info.columns[i]
 }
 
-func (info *TableInfo) ColumnByNameM(columnName string) *ColumnInfo {
-	column, found := info.ColumnByName(columnName)
-	if !found {
-		panic(fmt.Errorf("Column %+q not found in table %+q", columnName, info.tableName))
-	}
-	return column
-}
-
+// NumIndex returns the number of indices in the table. It returns 0 if info is nil.
 func (info *TableInfo) NumIndex() int {
+	if info == nil {
+		return 0
+	}
 	return len(info.indices)
 }
 
+// Index returns the i-th index in the table. It returns nil if info is nil.
 func (info *TableInfo) Index(i int) *IndexInfo {
+	if info == nil {
+		return nil
+	}
 	return info.indices[i]
 }
 
+// Indices returns all indices in the table. It returns nil if info is nil.
 func (info *TableInfo) Indices() []*IndexInfo {
+	if info == nil {
+		return nil
+	}
 	return info.indices
 }
 
-func (info *TableInfo) IndexByName(indexName string) (indexInfo *IndexInfo, found bool) {
+// IndexByName return the named index in the table. It returns nil if info is nil or not found.
+func (info *TableInfo) IndexByName(indexName string) *IndexInfo {
+	if info == nil {
+		return nil
+	}
 	i, found := info.indexNames[indexName]
 	if !found {
-		return nil, false
+		return nil
 	}
-	return info.indices[i], true
+	return info.indices[i]
 }
 
-func (info *TableInfo) IndexByNameM(indexName string) *IndexInfo {
-	index, found := info.IndexByName(indexName)
-	if !found {
-		panic(fmt.Errorf("Index %+q not found in table %+q", indexName, info.tableName))
-	}
-	return index
-}
-
+// NumFK returns the number of foreign key in the table. It returns 0 if info is nil.
 func (info *TableInfo) NumFK() int {
+	if info == nil {
+		return 0
+	}
 	return len(info.fks)
 }
 
+// FK returns the i-th foreign key in the table. It returns nil if info is nil.
 func (info *TableInfo) FK(i int) *FKInfo {
+	if info == nil {
+		return nil
+	}
 	return info.fks[i]
 }
 
+// FKs returns all foreign keys in the table. It returns nil if info is nil.
 func (info *TableInfo) FKs() []*FKInfo {
+	if info == nil {
+		return nil
+	}
 	return info.fks
 }
 
-func (info *TableInfo) FKByName(fkName string) (fkInfo *FKInfo, found bool) {
+// FKByName returns the named foreign key. It returns nil if info is nil or not found.
+func (info *TableInfo) FKByName(fkName string) *FKInfo {
+	if info == nil {
+		return nil
+	}
 	i, found := info.fkNames[fkName]
 	if !found {
-		return nil, false
+		return nil
 	}
-	return info.fks[i], true
+	return info.fks[i]
 }
 
-func (info *TableInfo) FKByNameM(fkName string) *FKInfo {
-	fk, found := info.FKByName(fkName)
-	if !found {
-		panic(fmt.Errorf("FK %+q not found in table %+q", fkName, info.tableName))
-	}
-	return fk
-}
-
+// Primary returns the primary key of the table. It returns nil if info is nil or primary key not exists.
 func (info *TableInfo) Primary() *IndexInfo {
+	if info == nil {
+		return nil
+	}
 	return info.primary
 }
 
-// AutoIncColumn() returns the single 'auto increment' column of the table.
+// AutoIncColumn returns the single 'auto increment' column of the table. It returns nil if info is nil or auto increment column not exists.
 //
 // NOTE: If the database does not support such sematic, it always returns nil.
 func (info *TableInfo) AutoIncColumn() *ColumnInfo {
+	if info == nil {
+		return nil
+	}
 	return info.autoIncColumn
 }
 
+// Valid returns true if info != nil.
 func (info *ColumnInfo) Valid() bool {
 	return info != nil
 }
 
+// String is same as ColumnName.
 func (info *ColumnInfo) String() string {
+	return info.ColumnName()
+}
+
+// ColumnName returns the column name. It returns "" if info is nil.
+func (info *ColumnInfo) ColumnName() string {
 	if info == nil {
-		return "<nil column>"
+		return ""
 	}
 	return info.columnName
 }
 
-func (info *ColumnInfo) ColumnName() string {
-	return info.columnName
-}
-
+// Table returns the tabe. It returns nil if info is nil.
 func (info *ColumnInfo) Table() *TableInfo {
+	if info == nil {
+		return nil
+	}
 	return info.table
 }
 
+// ColumnType returns the column type. It returns nil if info is nil.
 func (info *ColumnInfo) ColumnType() *sql.ColumnType {
+	if info == nil {
+		return nil
+	}
 	return info.columnType
 }
 
+// Pos returns the position of the column in table. It returns -1 if info is nil.
 func (info *ColumnInfo) Pos() int {
+	if info == nil {
+		return -1
+	}
 	return info.pos
 }
 
+// Valid returns true if info != nil.
 func (info *IndexInfo) Valid() bool {
 	return info != nil
 }
 
+// String is same as IndexName.
 func (info *IndexInfo) String() string {
+	return info.IndexName()
+}
+
+// IndexName returns the name of the index. It returns "" if info is nil.
+func (info *IndexInfo) IndexName() string {
 	if info == nil {
-		return "<nil index>"
+		return ""
 	}
 	return info.indexName
 }
 
-func (info *IndexInfo) IndexName() string {
-	return info.indexName
-}
-
+// Table returns the table. It returns nil if info is nil.
 func (info *IndexInfo) Table() *TableInfo {
+	if info == nil {
+		return nil
+	}
 	return info.table
 }
 
+// Columns returns the composed columns. It returns nil if info is nil.
 func (info *IndexInfo) Columns() []*ColumnInfo {
+	if info == nil {
+		return nil
+	}
 	return info.columns
 }
 
+// IsPrimary returns true if this is a valid primary index.
 func (info *IndexInfo) IsPrimary() bool {
+	if info == nil {
+		return false
+	}
 	return info.isPrimary
 }
 
+// IsUnique returns true if this is a valid unique index.
 func (info *IndexInfo) IsUnique() bool {
+	if info == nil {
+		return false
+	}
 	return info.isUnique
 }
 
+// Valid returns true if info != nil.
 func (info *FKInfo) Valid() bool {
 	return info != nil
 }
 
+// String is same as FKName.
 func (info *FKInfo) String() string {
+	return info.FKName()
+}
+
+// FKName returns the name of foreign key. It returns "" if info is nil.
+func (info *FKInfo) FKName() string {
 	if info == nil {
-		return "<nil fk>"
+		return ""
 	}
 	return info.fkName
 }
 
-func (info *FKInfo) FKName() string {
-	return info.fkName
-}
-
+// Table returns the table. It returns nil if info is nil.
 func (info *FKInfo) Table() *TableInfo {
+	if info == nil {
+		return nil
+	}
 	return info.table
 }
 
+// Columns returns the composed columns. It returns nil if info is nil.
 func (info *FKInfo) Columns() []*ColumnInfo {
+	if info == nil {
+		return nil
+	}
 	return info.columns
 }
 
+// RefTable returns the referenced table. It returns nil if info is nil or ref table not found in current database.
 func (info *FKInfo) RefTable() *TableInfo {
-	refTable, found := info.table.db.TableByName(info.refTableName)
-	if !found {
-		panic(fmt.Errorf("Can't find ref table %+q", info.refTableName))
+	if info == nil {
+		return nil
 	}
-	return refTable
+	return info.table.db.TableByName(info.refTableName)
 }
 
+// RefColumns returns the referenced columns. It returns nil if info is nil or ref table not found in current database.
 func (info *FKInfo) RefColumns() []*ColumnInfo {
+	if info == nil {
+		return nil
+	}
 	refTable := info.RefTable()
+	if refTable == nil {
+		return nil
+	}
 	refColumns := []*ColumnInfo{}
 	for _, refColumnName := range info.refColumnNames {
-		refColumn, found := refTable.ColumnByName(refColumnName)
-		if !found {
+		refColumn := refTable.ColumnByName(refColumnName)
+		if refColumn == nil {
 			panic(fmt.Errorf("Can't find column %+q in ref table %+q", refColumnName, info.refTableName))
 		}
 		refColumns = append(refColumns, refColumn)
