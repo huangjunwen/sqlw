@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+
+	"github.com/huangjunwen/sqlw/statement/directive"
 )
 
 var (
@@ -81,5 +83,8 @@ func (r *Renderer) funcMap() template.FuncMap {
 
 			return scanType, nil
 		},
+
+		"ExtractArgInfo":      directive.ExtractArgInfo,
+		"ExtractWildcardInfo": directive.ExtractWildcardInfo,
 	}
 }

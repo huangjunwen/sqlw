@@ -13,7 +13,7 @@ import (
 
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/dbctx"
-	"github.com/huangjunwen/sqlw/stmt"
+	"github.com/huangjunwen/sqlw/statement"
 )
 
 // Renderer is used for generating code.
@@ -178,9 +178,9 @@ func (r *Renderer) Run() error {
 				return err
 			}
 
-			stmtInfos := []*stmt.StatementInfo{}
+			stmtInfos := []*statement.StmtInfo{}
 			for _, elem := range doc.ChildElements() {
-				stmtInfo, err := stmt.NewStatementInfo(r.ctx, elem)
+				stmtInfo, err := statement.NewStmtInfo(r.ctx, elem)
 				if err != nil {
 					return err
 				}

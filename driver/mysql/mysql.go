@@ -10,11 +10,11 @@ import (
 	"github.com/huangjunwen/sqlw/driver"
 )
 
-type mysqlDriver struct{}
+type mysqlDrv struct{}
 
 var (
-	_ driver.Drv            = mysqlDriver{}
-	_ driver.DrvWithAutoInc = mysqlDriver{}
+	_ driver.Drv            = mysqlDrv{}
+	_ driver.DrvWithAutoInc = mysqlDrv{}
 )
 
 var (
@@ -36,7 +36,7 @@ var (
 	scanTypeUnknown   = reflect.TypeOf(new(interface{}))
 )
 
-func (driver mysqlDriver) ExtractTableNames(conn *sql.DB) (tableNames []string, err error) {
+func (driver mysqlDrv) ExtractTableNames(conn *sql.DB) (tableNames []string, err error) {
 	rows, err := conn.Query("SHOW TABLES")
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (driver mysqlDriver) ExtractTableNames(conn *sql.DB) (tableNames []string, 
 	return tableNames, nil
 }
 
-func (driver mysqlDriver) ExtractColumns(conn *sql.DB, tableName string) (columnNames []string, columnTypes []*sql.ColumnType, err error) {
+func (driver mysqlDrv) ExtractColumns(conn *sql.DB, tableName string) (columnNames []string, columnTypes []*sql.ColumnType, err error) {
 	rows, err := conn.Query("SELECT * FROM " + tableName)
 	if err != nil {
 		return nil, nil, err
@@ -73,7 +73,7 @@ func (driver mysqlDriver) ExtractColumns(conn *sql.DB, tableName string) (column
 	return columnNames, columnTypes, nil
 }
 
-func (driver mysqlDriver) ExtractAutoIncColumn(conn *sql.DB, tableName string) (columnName string, err error) {
+func (driver mysqlDrv) ExtractAutoIncColumn(conn *sql.DB, tableName string) (columnName string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return "", err
@@ -102,7 +102,7 @@ func (driver mysqlDriver) ExtractAutoIncColumn(conn *sql.DB, tableName string) (
 	return columnName, nil
 }
 
-func (driver mysqlDriver) ExtractIndexNames(conn *sql.DB, tableName string) (indexNames []string, err error) {
+func (driver mysqlDrv) ExtractIndexNames(conn *sql.DB, tableName string) (indexNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func (driver mysqlDriver) ExtractIndexNames(conn *sql.DB, tableName string) (ind
 
 }
 
-func (driver mysqlDriver) ExtractIndex(conn *sql.DB, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
+func (driver mysqlDrv) ExtractIndex(conn *sql.DB, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, false, false, err
@@ -179,7 +179,7 @@ func (driver mysqlDriver) ExtractIndex(conn *sql.DB, tableName string, indexName
 	return
 }
 
-func (driver mysqlDriver) ExtractFKNames(conn *sql.DB, tableName string) (fkNames []string, err error) {
+func (driver mysqlDrv) ExtractFKNames(conn *sql.DB, tableName string) (fkNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func (driver mysqlDriver) ExtractFKNames(conn *sql.DB, tableName string) (fkName
 	return fkNames, nil
 }
 
-func (driver mysqlDriver) ExtractFK(conn *sql.DB, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
+func (driver mysqlDrv) ExtractFK(conn *sql.DB, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, "", nil, err
@@ -252,7 +252,7 @@ func (driver mysqlDriver) ExtractFK(conn *sql.DB, tableName string, fkName strin
 
 }
 
-func (driver mysqlDriver) PrimitiveScanType(typ *sql.ColumnType) (string, error) {
+func (driver mysqlDrv) PrimitiveScanType(typ *sql.ColumnType) (string, error) {
 	switch typ.ScanType() {
 	case scanTypeFloat32:
 		return "float32", nil
@@ -289,5 +289,5 @@ func extractDBName(conn *sql.DB) (string, error) {
 }
 
 func init() {
-	driver.RegistDrv("mysql", mysqlDriver{})
+	driver.RegistDrv("mysql", mysqlDrv{})
 }

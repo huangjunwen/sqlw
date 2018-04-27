@@ -11,7 +11,7 @@ import (
 
 	"github.com/huangjunwen/sqlw/dbctx"
 	"github.com/huangjunwen/sqlw/render"
-	_ "github.com/huangjunwen/sqlw/stmt/directive"
+	//_ "github.com/huangjunwen/sqlw/stmt/directive"
 )
 
 type PrefixFS struct {
