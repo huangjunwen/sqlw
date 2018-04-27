@@ -1,4 +1,4 @@
-package stmt
+package statement
 
 import (
 	"database/sql"
@@ -10,20 +10,30 @@ import (
 	"github.com/huangjunwen/sqlw/dbctx"
 )
 
-type StatementInfo struct {
-	stmtType        string // 'SELECT'/'UPDATE'/'INSERT'/'DELETE'
-	stmtName        string
-	stmtText        string
-	directiveLocals map[interface{}]interface{}
+// StmtInfo contains information of a statement.
+type StmtInfo struct {
+	stmtType string // 'SELECT'/'UPDATE'/'INSERT'/'DELETE'
+	stmtName string
+	stmtText string
+	locals   map[interface{}]interface{}
 
 	// for SELECT stmt only
 	resultColumnNames []string
 	resultColumnTypes []*sql.ColumnType
 }
 
-func NewStatementInfo(ctx *dbctx.DBContext, elem *etree.Element) (*StatementInfo, error) {
-	info := &StatementInfo{
-		directiveLocals: map[interface{}]interface{}{},
+// NewStmtInfo creates a new StmtInfo from an xml element, example statement xml element:
+//
+//   <select name="BlogByUser">
+//     <arg name="userId" type="int" />
+//     SELECT <wildcard table="blog" /> FROM blog WHERE user_id=<replace with=":userId">1</replace>
+//   </select>
+//
+// A statement xml element contains SQL statement fragments and special directives.
+func NewStmtInfo(ctx *dbctx.DBContext, elem *etree.Element) (*StmtInfo, error) {
+
+	info := &StmtInfo{
+		locals: map[interface{}]interface{}{},
 	}
 
 	// Element's tag as type
@@ -49,7 +59,7 @@ func NewStatementInfo(ctx *dbctx.DBContext, elem *etree.Element) (*StatementInfo
 
 }
 
-func (info *StatementInfo) processElem(ctx *dbctx.DBContext, elem *etree.Element) error {
+func (info *StmtInfo) processElem(ctx *dbctx.DBContext, elem *etree.Element) error {
 
 	// Convert elem to a list of StmtDirective
 	directives := []Directive{}
@@ -142,38 +152,72 @@ func (info *StatementInfo) processElem(ctx *dbctx.DBContext, elem *etree.Element
 	return nil
 }
 
-func (info *StatementInfo) Valid() bool {
+// Valid returns true if info != nil.
+func (info *StmtInfo) Valid() bool {
 	return info != nil
 }
 
-func (info *StatementInfo) String() string {
+// String is same as StmtName.
+func (info *StmtInfo) String() string {
+	return info.StmtName()
+}
+
+// StmtName returns the name of the StmtInfo. It returns "" if info is nil.
+func (info *StmtInfo) StmtName() string {
+	if info == nil {
+		return ""
+	}
 	return info.stmtName
 }
 
-func (info *StatementInfo) StmtName() string {
-	return info.stmtName
-}
-
-func (info *StatementInfo) StmtType() string {
+// StmtType returns the statement type, one of "SELECT"/"UPDATE"/"INSERT"/"UPDATE". It returns "" if info is nil.
+func (info *StmtInfo) StmtType() string {
+	if info == nil {
+		return ""
+	}
 	return info.stmtType
 }
 
-func (info *StatementInfo) NumResultColumn() int {
+// NumResultColumn returns the number of result columns. It returns 0 if info is nil or it is not "SELECT" statement.
+func (info *StmtInfo) NumResultColumn() int {
+	if info == nil {
+		return 0
+	}
 	return len(info.resultColumnNames)
 }
 
-func (info *StatementInfo) ResultColumnName(i int) string {
+// ResultColumnName returns the i-th result column name. It returns "" if info is nil or i is out of range.
+func (info *StmtInfo) ResultColumnName(i int) string {
+	if info == nil {
+		return ""
+	}
+	if i < 0 || i >= len(info.resultColumnNames) {
+		return ""
+	}
 	return info.resultColumnNames[i]
 }
 
-func (info *StatementInfo) ResultColumnType(i int) *sql.ColumnType {
+// ResultColumnType returns the i-th result column type. It returns nil if info is nil or i is out of range.
+func (info *StmtInfo) ResultColumnType(i int) *sql.ColumnType {
+	if info == nil {
+		return nil
+	}
+	if i < 0 || i >= len(info.resultColumnTypes) {
+		return nil
+	}
 	return info.resultColumnTypes[i]
 }
 
-func (info *StatementInfo) DirectiveLocals(key interface{}) interface{} {
-	return info.directiveLocals[key]
+// Locals returns the associated value for the given key in StmtInfo's locals map.
+// This map is used by directives to store directive specific variables.
+func (info *StmtInfo) Locals(key interface{}) interface{} {
+	if info == nil {
+		return nil
+	}
+	return info.locals[key]
 }
 
-func (info *StatementInfo) SetDirectiveLocals(key, val interface{}) {
-	info.directiveLocals[key] = val
+// SetLocals set key/value into StmtInfo's locals map. See document in Locals.
+func (info *StmtInfo) SetLocals(key, val interface{}) {
+	info.locals[key] = val
 }

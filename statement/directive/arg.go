@@ -7,7 +7,7 @@ import (
 	"github.com/beevik/etree"
 
 	"github.com/huangjunwen/sqlw/dbctx"
-	"github.com/huangjunwen/sqlw/stmt"
+	"github.com/huangjunwen/sqlw/statement"
 )
 
 type argDirective struct {
@@ -15,10 +15,10 @@ type argDirective struct {
 	argType string
 }
 
-type argDirectiveLocalsKeyType struct{}
+type argLocalsKeyType struct{}
 
 var (
-	argDirectiveLocalsKey = argDirectiveLocalsKeyType{}
+	argLocalsKey = argLocalsKeyType{}
 )
 
 // ArgInfo contains wrapper function argument information in a statement.
@@ -26,26 +26,26 @@ type ArgInfo struct {
 	directives []*argDirective
 }
 
-func (d *argDirective) Initialize(ctx *dbctx.DBContext, statement *stmt.StatementInfo, tok etree.Token) error {
+func (d *argDirective) Initialize(ctx *dbctx.DBContext, stmt *statement.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	// Extract name/type from xml.
-	name := elem.SelectAttrValue("name", "")
-	if name == "" {
+	argName := elem.SelectAttrValue("name", "")
+	if argName == "" {
 		return fmt.Errorf("Missing 'name' attribute in <arg> directive")
 	}
-	typ := elem.SelectAttrValue("type", "")
-	if typ == "" {
+	argType := elem.SelectAttrValue("type", "")
+	if argType == "" {
 		return fmt.Errorf("Missing 'type' attribute in <arg> directive")
 	}
-	d.argName = name
-	d.argType = typ
+	d.argName = argName
+	d.argType = argType
 
 	// Add the directive to ArgInfo.
-	locals := statement.DirectiveLocals(argDirectiveLocalsKey)
+	locals := stmt.Locals(argLocalsKey)
 	if locals == nil {
 		locals = &ArgInfo{}
-		statement.SetDirectiveLocals(argDirectiveLocalsKey, locals)
+		stmt.SetLocals(argLocalsKey, locals)
 	}
 	info := locals.(*ArgInfo)
 	info.directives = append(info.directives, d)
@@ -65,25 +65,44 @@ func (d *argDirective) ProcessQueryResult(resultColumnNames *[]string, resultCol
 	return nil
 }
 
+// Valid returns true if info != nil.
 func (info *ArgInfo) Valid() bool {
 	return info != nil
 }
 
+// NumArg returns the number of arguments in the statement. It returns 0 if info is nil or there is no args at all.
 func (info *ArgInfo) NumArg() int {
+	if info == nil {
+		return 0
+	}
 	return len(info.directives)
 }
 
+// ArgName returns the i-th argument's name. It returns "" if info is nil or i is out of range.
 func (info *ArgInfo) ArgName(i int) string {
+	if info == nil {
+		return ""
+	}
+	if i < 0 || i >= len(info.directives) {
+		return ""
+	}
 	return info.directives[i].argName
 }
 
+// ArgType returns the i-th argument's type. It returns "" if info is nil or i is out of range.
 func (info *ArgInfo) ArgType(i int) string {
+	if info == nil {
+		return ""
+	}
+	if i < 0 || i >= len(info.directives) {
+		return ""
+	}
 	return info.directives[i].argType
 }
 
 // ExtractArgInfo extracts arg information from a statement or nil if not exists.
-func ExtractArgInfo(statement *stmt.StatementInfo) *ArgInfo {
-	locals := statement.DirectiveLocals(argDirectiveLocalsKey)
+func ExtractArgInfo(stmt *statement.StmtInfo) *ArgInfo {
+	locals := stmt.Locals(argLocalsKey)
 	if locals != nil {
 		return locals.(*ArgInfo)
 	}
@@ -91,7 +110,7 @@ func ExtractArgInfo(statement *stmt.StatementInfo) *ArgInfo {
 }
 
 func init() {
-	stmt.RegistDirectiveFactory(func() stmt.Directive {
+	statement.RegistDirectiveFactory(func() statement.Directive {
 		return &argDirective{}
 	}, "arg")
 }

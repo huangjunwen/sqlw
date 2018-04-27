@@ -11,30 +11,31 @@ import (
 	"github.com/beevik/etree"
 
 	"github.com/huangjunwen/sqlw/dbctx"
-	"github.com/huangjunwen/sqlw/stmt"
+	"github.com/huangjunwen/sqlw/statement"
 )
 
 type wildcardDirective struct {
-	statement  *stmt.StatementInfo
+	stmt       *statement.StmtInfo
 	table      *dbctx.TableInfo
 	tableAlias string
+	idx        int
 }
 
-type wildcardDirectiveLocalsKeyType struct{}
+type wildcardLocalsKeyType struct{}
 
 var (
-	wildcardDirectiveLocalsKey = wildcardDirectiveLocalsKeyType{}
+	wildcardLocalsKey = wildcardLocalsKeyType{}
 )
 
 // WildcardInfo contain wildcard information in a statement.
 type WildcardInfo struct {
-	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
-	wildcardColumns []*dbctx.ColumnInfo
-	wildcardAliases []string
-
 	marker          string
 	directives      []*wildcardDirective
 	resultProcessed bool
+
+	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
+	wildcardColumns []*dbctx.ColumnInfo
+	wildcardAliases []string
 }
 
 func (d *wildcardDirective) expansion() string {
@@ -56,18 +57,13 @@ func (d *wildcardDirective) expansion() string {
 
 }
 
-func (d *wildcardDirective) directiveLocals() *WildcardInfo {
+func (d *wildcardDirective) locals() *WildcardInfo {
 	// All wildcardDirective in a statement share the same WildcardInfo.
-	locals := d.statement.DirectiveLocals(wildcardDirectiveLocalsKey)
-	if locals != nil {
-		return locals.(*WildcardInfo)
-	}
-	ret := newWildcardInfo()
-	d.statement.SetDirectiveLocals(wildcardDirectiveLocalsKey, ret)
-	return ret
+	return d.stmt.Locals(wildcardLocalsKey).(*WildcardInfo)
 }
 
-func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, statement *stmt.StatementInfo, tok etree.Token) error {
+func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *statement.StmtInfo, tok etree.Token) error {
+	// Extract attributes.
 	elem := tok.(*etree.Element)
 
 	tableName := elem.SelectAttrValue("table", "")
@@ -82,9 +78,19 @@ func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, statement *stmt.Sta
 
 	as := elem.SelectAttrValue("as", "")
 
-	d.statement = statement
+	// Stores in locals.
+	locals := d.stmt.Locals(wildcardLocalsKey)
+	if locals == nil {
+		locals = newWildcardInfo()
+	}
+	info := locals.(*WildcardInfo)
+	info.directives = append(info.directives, d)
+
+	// Set fields.
+	d.stmt = stmt
 	d.table = table
 	d.tableAlias = as
+	d.idx = len(info.directives) - 1
 	return nil
 }
 
@@ -93,11 +99,11 @@ func (d *wildcardDirective) Generate() (string, error) {
 }
 
 func (d *wildcardDirective) GenerateQuery() (string, error) {
-	return d.directiveLocals().generateQuery(d), nil
+	return d.locals().generateQuery(d), nil
 }
 
 func (d *wildcardDirective) ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
-	return d.directiveLocals().processQueryResult(resultColumnNames, resultColumnTypes)
+	return d.locals().processQueryResult(resultColumnNames, resultColumnTypes)
 }
 
 func newWildcardInfo() *WildcardInfo {
@@ -113,8 +119,8 @@ func newWildcardInfo() *WildcardInfo {
 }
 
 // ExtractWildcardInfo() extract wildcard information from a statement or nil if not exists.
-func ExtractWildcardInfo(statement *stmt.StatementInfo) *WildcardInfo {
-	locals := statement.DirectiveLocals(wildcardDirectiveLocalsKey)
+func ExtractWildcardInfo(stmt *statement.StmtInfo) *WildcardInfo {
+	locals := stmt.Locals(wildcardLocalsKey)
 	if locals != nil {
 		return locals.(*WildcardInfo)
 	}
@@ -150,9 +156,7 @@ func (info *WildcardInfo) parseMarker(s string) (isMarker bool, idx int, isBegin
 }
 
 func (info *WildcardInfo) generateQuery(d *wildcardDirective) string {
-	info.directives = append(info.directives, d)
-	idx := len(info.directives) - 1
-	return fmt.Sprintf("1 AS %s, %s, 1 AS %s", info.fmtMarker(idx, true), d.expansion(), info.fmtMarker(idx, false))
+	return fmt.Sprintf("1 AS %s, %s, 1 AS %s", info.fmtMarker(d.idx, true), d.expansion(), info.fmtMarker(d.idx, false))
 }
 
 func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
@@ -190,6 +194,9 @@ func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, result
 				if currentDirective == nil {
 					panic(fmt.Errorf("Expect wildcard directive"))
 				}
+				if currentColumnPos != currentDirective.table.NumColumn() {
+					panic(fmt.Errorf("Expect column pos == %d, but got %d", currentDirective.table.NumColumn(), currentColumnPos))
+				}
 
 				currentDirective = nil
 				currentColumnPos = 0
@@ -209,6 +216,9 @@ func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, result
 
 		} else {
 			wildcardColumn := currentDirective.table.Column(currentColumnPos)
+			if !wildcardColumn.Valid() {
+				panic(fmt.Errorf("Bad wildcard column: table(%+q) column(%d)", currentDirective.table.String(), currentColumnPos))
+			}
 			currentColumnPos += 1
 			// NOTE: In left outer join, the same column may have different ScanType()
 			// since the outer table can have null value even the original column can not.
@@ -230,10 +240,13 @@ func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, result
 	return nil
 }
 
-// WildcardColumn returns the table column info for the i-th result column
-// if it is from a <wildcard> directive or nil otherwise.
+// WildcardColumn returns the table column for the i-th result column
+// if it is from a <wildcard> directive and nil otherwise.
 func (info *WildcardInfo) WildcardColumn(i int) *dbctx.ColumnInfo {
 	if info == nil {
+		return nil
+	}
+	if i < 0 || i >= len(info.wildcardColumns) {
 		return nil
 	}
 	return info.wildcardColumns[i]
@@ -245,16 +258,19 @@ func (info *WildcardInfo) WildcardAlias(i int) string {
 	if info == nil {
 		return ""
 	}
+	if i < 0 || i >= len(info.wildcardAliases) {
+		return ""
+	}
 	return info.wildcardAliases[i]
 }
 
-// Valid return true if this is a non-nil WildcardInfo.
+// Valid return true if info != nil.
 func (info *WildcardInfo) Valid() bool {
 	return info != nil
 }
 
 func init() {
-	stmt.RegistDirectiveFactory(func() stmt.Directive {
+	statement.RegistDirectiveFactory(func() statement.Directive {
 		return &wildcardDirective{}
 	}, "wildcard")
 }
