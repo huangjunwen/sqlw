@@ -197,6 +197,14 @@ func (info *StmtInfo) ResultColumnName(i int) string {
 	return info.resultColumnNames[i]
 }
 
+// ResultColumnNames returns all result column names. It returns nil if info is nil.
+func (info *StmtInfo) ResultColumnNames() []string {
+	if info == nil {
+		return nil
+	}
+	return info.resultColumnNames
+}
+
 // ResultColumnType returns the i-th result column type. It returns nil if info is nil or i is out of range.
 func (info *StmtInfo) ResultColumnType(i int) *sql.ColumnType {
 	if info == nil {
@@ -208,12 +216,17 @@ func (info *StmtInfo) ResultColumnType(i int) *sql.ColumnType {
 	return info.resultColumnTypes[i]
 }
 
-// Locals returns the associated value for the given key in StmtInfo's locals map.
-// This map is used by directives to store directive specific variables.
-func (info *StmtInfo) Locals(key interface{}) interface{} {
+// ResultColumnTypes returns all result column types. It returns nil if info is nil.
+func (info *StmtInfo) ResultColumnTypes() []*sql.ColumnType {
 	if info == nil {
 		return nil
 	}
+	return info.resultColumnTypes
+}
+
+// Locals returns the associated value for the given key in StmtInfo's locals map.
+// This map is used by directives to store directive specific variables.
+func (info *StmtInfo) Locals(key interface{}) interface{} {
 	return info.locals[key]
 }
 

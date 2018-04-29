@@ -147,7 +147,7 @@ func (r *Renderer) Run() error {
 		return fmt.Errorf("Missing 'table_tmpl' in manifest.json")
 	}
 	for _, table := range r.ctx.DB().Tables() {
-		if err := r.render(manifest.TableTemplate, table.TableName()+".go", map[string]interface{}{
+		if err := r.render(manifest.TableTemplate, "table_"+table.TableName()+".go", map[string]interface{}{
 			"Table":       table,
 			"DBContext":   r.ctx,
 			"PackageName": r.outputPkg,
@@ -187,7 +187,7 @@ func (r *Renderer) Run() error {
 				stmtInfos = append(stmtInfos, stmtInfo)
 			}
 
-			if err := r.render(manifest.StmtTemplate, strings.Split(stmtFileName, ".")[0]+".go", map[string]interface{}{
+			if err := r.render(manifest.StmtTemplate, "stmt_"+strings.Split(stmtFileName, ".")[0]+".go", map[string]interface{}{
 				"Stmts":       stmtInfos,
 				"DBContext":   r.ctx,
 				"PackageName": r.outputPkg,
@@ -201,7 +201,7 @@ func (r *Renderer) Run() error {
 	// Render extra files.
 	for _, tmplName := range manifest.ExtraTemplates {
 		// Render.
-		fileName := strings.Split(tmplName, ".")[0] + ".go"
+		fileName := "extra_" + strings.Split(tmplName, ".")[0] + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{
 			"DBContext":   r.ctx,
 			"PackageName": r.outputPkg,

@@ -79,9 +79,10 @@ func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *statement.Stm
 	as := elem.SelectAttrValue("as", "")
 
 	// Stores in locals.
-	locals := d.stmt.Locals(wildcardLocalsKey)
+	locals := stmt.Locals(wildcardLocalsKey)
 	if locals == nil {
 		locals = newWildcardInfo()
+		stmt.SetLocals(wildcardLocalsKey, locals)
 	}
 	info := locals.(*WildcardInfo)
 	info.directives = append(info.directives, d)
