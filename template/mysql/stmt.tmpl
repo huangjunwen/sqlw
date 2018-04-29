@@ -1,2 +1,60 @@
 package {{ .PackageName }}
 
+import (
+  "context"
+
+	"gopkg.in/guregu/null.v3"
+)
+
+{{ range $stmt := .Stmts }}
+
+  {{ $stmtName := $stmt.StmtName }}
+  {{ $stmtType := $stmt.StmtType }}
+  {{ $argInfo := ExtractArgInfo $stmt }}
+  {{ $wildcardInfo := ExtractWildcardInfo $stmt }}
+
+  {{ if eq $stmtType "SELECT" }}
+
+// {{ $stmtName }}Result is the result of {{ $stmtName }}.
+type {{ $stmtName }}Result struct {
+    {{ range $i, $resultColumnName := $stmt.ResultColumnNames -}}
+
+      {{ $resultColumnType := $stmt.ResultColumnType $i -}}
+      {{ $wildcardColumn := $wildcardInfo.WildcardColumn $i -}}
+
+      {{ if $wildcardColumn.Valid -}}
+        {{ if eq $wildcardColumn.Pos 0 -}}
+  {{ UpperCamel $wildcardColumn.Table.TableName }} {{ UpperCamel $wildcardColumn.Table.TableName }}
+        {{ end -}}
+      {{ else -}}
+  {{ UpperCamel $resultColumnName }} {{ ScanType $resultColumnType }}
+      {{ end -}}
+
+    {{ end -}}
+}
+
+func {{ $stmtName }}(ctx context.Context, q Queryer
+{{- range $i := N $argInfo.NumArg -}}
+  {{- $argName := $argInfo.ArgName $i -}}
+  {{- $argType := $argInfo.ArgType $i -}}
+, {{ $argName }} {{ $argType }}
+{{- end -}}
+) ([]*{{ $stmtName }}Result, error) {
+  return nil, nil
+}
+
+
+  {{ else if eq $stmtType "UPDATE" }}
+
+
+  {{ else if eq $stmtType "DELETE" }}
+
+
+  {{ else if eq $stmtType "INSERT" }}
+
+
+  {{ else }}
+
+  {{ end }}
+
+{{ end }}

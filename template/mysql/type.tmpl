@@ -10,7 +10,7 @@ type Execer interface {
   ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
-// Execer is the common interface to execute a query returning row(s).
+// Queryer is the common interface to execute a query returning row(s).
 type Queryer interface {
   QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
   QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row

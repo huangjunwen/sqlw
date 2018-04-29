@@ -47,6 +47,40 @@ func (r *Renderer) funcMap() template.FuncMap {
 			return camel(s, false)
 		},
 
+		"N": func(args ...int) chan int {
+			var start, end, step int
+			switch len(args) {
+			case 1:
+				start = 0
+				end = args[0]
+				step = 1
+			case 2:
+				start = args[0]
+				end = args[1]
+				step = 1
+			case 3:
+				start = args[0]
+				end = args[1]
+				step = args[2]
+			}
+			stream := make(chan int)
+			go func() {
+				if step > 0 {
+					for i := start; i < end; i += step {
+						stream <- i
+					}
+				} else if step < 0 {
+					for i := start; i > end; i += step {
+						stream <- i
+					}
+				} else {
+					panic(fmt.Errorf("Step can't be 0"))
+				}
+				close(stream)
+			}()
+			return stream
+		},
+
 		"Nullable": func(typ *sql.ColumnType) (bool, error) {
 			nullable, ok := typ.Nullable()
 			if !ok {
