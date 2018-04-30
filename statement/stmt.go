@@ -103,7 +103,7 @@ func (info *StmtInfo) processElem(ctx *dbctx.DBContext, elem *etree.Element) err
 
 		}
 
-		stmtTextQuery := strings.Join(fragments, "")
+		stmtTextQuery := strings.TrimSpace(strings.Join(fragments, ""))
 
 		// Query
 		rows, err := ctx.Conn().Query(stmtTextQuery)
@@ -147,7 +147,7 @@ func (info *StmtInfo) processElem(ctx *dbctx.DBContext, elem *etree.Element) err
 
 	}
 
-	info.stmtText = strings.Join(fragments, "")
+	info.stmtText = strings.TrimSpace(strings.Join(fragments, ""))
 
 	return nil
 }
@@ -176,6 +176,14 @@ func (info *StmtInfo) StmtType() string {
 		return ""
 	}
 	return info.stmtType
+}
+
+// StmtText returns the statment text. It returns "" if info is nil.
+func (info *StmtInfo) StmtText() string {
+	if info == nil {
+		return ""
+	}
+	return info.stmtText
 }
 
 // NumResultColumn returns the number of result columns. It returns 0 if info is nil or it is not "SELECT" statement.

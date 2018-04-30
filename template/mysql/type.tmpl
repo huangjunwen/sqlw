@@ -3,6 +3,8 @@ package {{ .PackageName }}
 import (
   "context"
   "database/sql"
+  "io"
+  "fmt"
 )
 
 // Execer is the common interface to execute a query without returning any rows.
@@ -14,6 +16,12 @@ type Execer interface {
 type Queryer interface {
   QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
   QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
+// WriterStringer is combination of io.Writer and fmt.Stringer.
+type WriterStringer interface {
+  io.Writer
+  fmt.Stringer
 }
 
 // TableEntry is the common interface of an entry of a table.

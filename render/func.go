@@ -47,6 +47,19 @@ func (r *Renderer) funcMap() template.FuncMap {
 			return camel(s, false)
 		},
 
+		"Split": strings.Split,
+
+		"Literal": func(s string) string {
+			lines := []string{`"" +`}
+			for _, line := range strings.Split(s, "\n") {
+				// NOTE: "\n" must be preserved. Consider this:
+				// "SELECT * -- comment blablabla \n FROM atable"
+				lines = append(lines, fmt.Sprintf("%+q +", line+"\n"))
+			}
+			lines = append(lines, `""`)
+			return strings.Join(lines, "\n")
+		},
+
 		"N": func(args ...int) chan int {
 			var start, end, step int
 			switch len(args) {

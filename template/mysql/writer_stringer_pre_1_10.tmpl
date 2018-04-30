@@ -1,0 +1,12 @@
+// +build go1.5,!go1.10
+
+package {{ .PackageName }}
+
+import (
+  "bytes"
+)
+
+func newWriterStringer() writerStringer {
+  return &bytes.Buffer{}
+}
+

@@ -1,0 +1,13 @@
+// +build go1.10
+
+package {{ .PackageName }}
+
+import (
+  "strings"
+)
+
+func newWriterStringer() WriterStringer {
+  return &strings.Builder{}
+}
+
+
