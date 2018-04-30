@@ -132,6 +132,7 @@ func (r *Renderer) funcMap() template.FuncMap {
 		},
 
 		"ExtractArgInfo":      directive.ExtractArgInfo,
+		"ExtractVarInfo":      directive.ExtractVarInfo,
 		"ExtractWildcardInfo": directive.ExtractWildcardInfo,
 	}
 }

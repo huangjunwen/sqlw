@@ -13,9 +13,12 @@ import (
   {{ $stmtName := $stmt.StmtName }}
   {{ $stmtType := $stmt.StmtType }}
   {{ $argInfo := ExtractArgInfo $stmt }}
+  {{ $varInfo := ExtractVarInfo $stmt }}
   {{ $wildcardInfo := ExtractWildcardInfo $stmt }}
 
   {{ if eq $stmtType "SELECT" }}
+
+    {{ $noTmpl := $varInfo.Has "no_tmpl" }}
 
 // {{ $stmtName }}Result is the result of {{ $stmtName }}.
 type {{ $stmtName }}Result struct {
@@ -36,7 +39,11 @@ type {{ $stmtName }}Result struct {
 }
 
 var (
+{{ if $noTmpl -}}
+  stmt{{ $stmtName }} = {{ Literal $stmt.StmtText }} 
+{{ else -}}
   stmtTmpl{{ $stmtName }} = template.Must(template.New("{{ $stmtName }}").Parse({{ Literal $stmt.StmtText }}))
+{{ end -}}
 )
 
 func {{ $stmtName }}(ctx context.Context, q Queryer
@@ -46,6 +53,8 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
 , {{ $argName }} {{ $argType }}
 {{- end -}}
 ) ([]*{{ $stmtName }}Result, error) {
+
+  // Data
   data_ := map[string]interface{}{
 {{ range $i := N $argInfo.NumArg -}}
   {{- $argName := $argInfo.ArgName $i -}}
@@ -53,14 +62,20 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
 {{- end }}
   }
 
+{{ if $noTmpl }}
+  // Named query.
+  namedQueryString_ := stmt{{ $stmtName }}
+{{ else }}
   // Template -> named query
   namedQuery_ := newWriterStringer()
   if err_ := stmtTmpl{{ $stmtName }}.Execute(namedQuery_, data_); err_ != nil {
     return nil, err_
   }
+  namedQueryString_ := namedQuery_.String()
+{{ end }}
 
   // Named query -> query
-  query_, args_, err_ := sqlx.Named(namedQuery_.String(), data_)
+  query_, args_, err_ := sqlx.Named(namedQueryString_, data_)
   if err_ != nil {
     return nil, err_
   }
