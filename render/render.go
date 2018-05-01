@@ -12,14 +12,14 @@ import (
 	"text/template"
 
 	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/dbcontext"
 	"github.com/huangjunwen/sqlw/statement"
 )
 
 // Renderer is used for generating code.
 type Renderer struct {
 	// Options
-	ctx       *dbctx.DBCtx
+	ctx       *dbcontext.DBCtx
 	tmplFS    http.FileSystem
 	stmtDir   string
 	outputDir string

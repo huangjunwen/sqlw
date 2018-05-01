@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/huangjunwen/sqlw/driver/mysql"
 
-	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/dbcontext"
 	"github.com/huangjunwen/sqlw/render"
 	//_ "github.com/huangjunwen/sqlw/stmt/directive"
 )
@@ -56,7 +56,7 @@ func main() {
 	}
 
 	// Extract database information.
-	ctx, err := dbctx.NewDBCtx(driverName, dataSourceName)
+	ctx, err := dbcontext.NewDBCtx(driverName, dataSourceName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,11 +72,11 @@ func main() {
 
 	// Render.
 	renderer, err := render.NewRenderer(
-		render.DBContext(ctx),
+		render.DBCtx(ctx),
 		render.OutputDir(outputDir),
 		render.OutputPackage(outputPackage),
 		render.StmtDir(stmtDir),
-		render.TemplateFS(fs),
+		render.TmplFS(fs),
 	)
 	if err != nil {
 		log.Fatal(err)

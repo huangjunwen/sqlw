@@ -5,13 +5,13 @@ import (
 
 	"github.com/beevik/etree"
 
-	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/dbcontext"
 )
 
 // Directive represents a fragment of a statement.
 type Directive interface {
 	// Initialize the directive.
-	Initialize(ctx *dbctx.DBCtx, stmt *StmtInfo, tok etree.Token) error
+	Initialize(ctx *dbcontext.DBCtx, stmt *StmtInfo, tok etree.Token) error
 
 	// Generate generates the final text fragment of this directive.
 	Generate() (string, error)
@@ -33,7 +33,7 @@ type textDirective struct {
 	data string
 }
 
-func (d *textDirective) Initialize(ctx *dbctx.DBCtx, stmt *StmtInfo, tok etree.Token) error {
+func (d *textDirective) Initialize(ctx *dbcontext.DBCtx, stmt *StmtInfo, tok etree.Token) error {
 	d.data = tok.(*etree.CharData).Data
 	return nil
 }

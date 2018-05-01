@@ -2,7 +2,7 @@ package render
 
 import (
 	"fmt"
-	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/dbcontext"
 	"net/http"
 	"os"
 	"path"
@@ -11,16 +11,16 @@ import (
 // Option is used to create Renderer.
 type Option func(*Renderer) error
 
-// DBContext sets the database context. (required)
-func DBContext(ctx *dbctx.DBCtx) Option {
+// DBCtx sets the database context. (required)
+func DBCtx(ctx *dbcontext.DBCtx) Option {
 	return func(r *Renderer) error {
 		r.ctx = ctx
 		return nil
 	}
 }
 
-// TemplateFS sets the template directory. (required)
-func TemplateFS(tmplFS http.FileSystem) Option {
+// TmplFS sets the template directory. (required)
+func TmplFS(tmplFS http.FileSystem) Option {
 	return func(r *Renderer) error {
 		r.tmplFS = tmplFS
 		return nil

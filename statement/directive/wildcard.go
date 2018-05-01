@@ -10,13 +10,13 @@ import (
 
 	"github.com/beevik/etree"
 
-	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/dbcontext"
 	"github.com/huangjunwen/sqlw/statement"
 )
 
 type wildcardDirective struct {
 	stmt       *statement.StmtInfo
-	table      *dbctx.TableInfo
+	table      *dbcontext.TableInfo
 	tableAlias string
 	idx        int
 }
@@ -34,7 +34,7 @@ type WildcardInfo struct {
 	resultProcessed bool
 
 	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
-	wildcardColumns []*dbctx.ColumnInfo
+	wildcardColumns []*dbcontext.ColumnInfo
 	wildcardAliases []string
 }
 
@@ -62,7 +62,7 @@ func (d *wildcardDirective) locals() *WildcardInfo {
 	return d.stmt.Locals(wildcardLocalsKey).(*WildcardInfo)
 }
 
-func (d *wildcardDirective) Initialize(ctx *dbctx.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *wildcardDirective) Initialize(ctx *dbcontext.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
 	// Extract attributes.
 	elem := tok.(*etree.Element)
 
@@ -243,7 +243,7 @@ func (info *WildcardInfo) processQueryResult(resultColumnNames *[]string, result
 
 // WildcardColumn returns the table column for the i-th result column
 // if it is from a <wildcard> directive and nil otherwise.
-func (info *WildcardInfo) WildcardColumn(i int) *dbctx.ColumnInfo {
+func (info *WildcardInfo) WildcardColumn(i int) *dbcontext.ColumnInfo {
 	if info == nil {
 		return nil
 	}

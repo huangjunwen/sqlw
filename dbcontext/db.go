@@ -1,4 +1,4 @@
-package dbctx
+package dbcontext
 
 import (
 	"database/sql"

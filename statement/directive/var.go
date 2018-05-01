@@ -6,7 +6,7 @@ import (
 
 	"github.com/beevik/etree"
 
-	"github.com/huangjunwen/sqlw/dbctx"
+	"github.com/huangjunwen/sqlw/dbcontext"
 	"github.com/huangjunwen/sqlw/statement"
 )
 
@@ -23,7 +23,7 @@ type VarInfo struct {
 	values map[string]string
 }
 
-func (d *varDirective) Initialize(ctx *dbctx.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *varDirective) Initialize(ctx *dbcontext.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	// Get var name and (optinal) value.
