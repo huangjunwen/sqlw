@@ -36,7 +36,7 @@ func camel(s string, upper bool) string {
 
 func (r *Renderer) funcMap() template.FuncMap {
 
-	ctx := r.ctx
+	ctx := r.dbctx
 
 	return template.FuncMap{
 		"UpperCamel": func(s string) string {

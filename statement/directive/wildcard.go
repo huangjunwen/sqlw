@@ -62,7 +62,7 @@ func (d *wildcardDirective) locals() *WildcardInfo {
 	return d.stmt.Locals(wildcardLocalsKey).(*WildcardInfo)
 }
 
-func (d *wildcardDirective) Initialize(ctx *dbcontext.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *wildcardDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
 	// Extract attributes.
 	elem := tok.(*etree.Element)
 
@@ -71,7 +71,7 @@ func (d *wildcardDirective) Initialize(ctx *dbcontext.DBCtx, stmt *statement.Stm
 		return fmt.Errorf("Missing 'table' attribute in <wildcard> directive")
 	}
 
-	table := ctx.DB().TableByName(tableName)
+	table := dbctx.DB().TableByName(tableName)
 	if table == nil {
 		return fmt.Errorf("Table %+q not found", tableName)
 	}

@@ -30,7 +30,7 @@ type StmtInfo struct {
 //   </select>
 //
 // A statement xml element contains SQL statement fragments and special directives.
-func NewStmtInfo(ctx *dbcontext.DBCtx, elem *etree.Element) (*StmtInfo, error) {
+func NewStmtInfo(dbctx *dbcontext.DBCtx, elem *etree.Element) (*StmtInfo, error) {
 
 	info := &StmtInfo{
 		locals: map[interface{}]interface{}{},
@@ -51,7 +51,7 @@ func NewStmtInfo(ctx *dbcontext.DBCtx, elem *etree.Element) (*StmtInfo, error) {
 	}
 
 	// Process it.
-	if err := info.processElem(ctx, elem); err != nil {
+	if err := info.processElem(dbctx, elem); err != nil {
 		return nil, err
 	}
 
@@ -59,7 +59,7 @@ func NewStmtInfo(ctx *dbcontext.DBCtx, elem *etree.Element) (*StmtInfo, error) {
 
 }
 
-func (info *StmtInfo) processElem(ctx *dbcontext.DBCtx, elem *etree.Element) error {
+func (info *StmtInfo) processElem(dbctx *dbcontext.DBCtx, elem *etree.Element) error {
 
 	// Convert elem to a list of StmtDirective
 	directives := []Directive{}
@@ -80,7 +80,7 @@ func (info *StmtInfo) processElem(ctx *dbcontext.DBCtx, elem *etree.Element) err
 			directive = factory()
 		}
 
-		if err := directive.Initialize(ctx, info, t); err != nil {
+		if err := directive.Initialize(dbctx, info, t); err != nil {
 			return err
 		}
 
@@ -106,7 +106,7 @@ func (info *StmtInfo) processElem(ctx *dbcontext.DBCtx, elem *etree.Element) err
 		stmtTextQuery := strings.TrimSpace(strings.Join(fragments, ""))
 
 		// Query
-		rows, err := ctx.Conn().Query(stmtTextQuery)
+		rows, err := dbctx.Conn().Query(stmtTextQuery)
 		if err != nil {
 			return err
 		}

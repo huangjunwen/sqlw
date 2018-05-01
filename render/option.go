@@ -12,9 +12,9 @@ import (
 type Option func(*Renderer) error
 
 // DBCtx sets the database context. (required)
-func DBCtx(ctx *dbcontext.DBCtx) Option {
+func DBCtx(dbctx *dbcontext.DBCtx) Option {
 	return func(r *Renderer) error {
-		r.ctx = ctx
+		r.dbctx = dbctx
 		return nil
 	}
 }
@@ -61,8 +61,8 @@ func OutputDir(outputDir string) Option {
 	}
 }
 
-// OutputPackage sets an alternative package name for generated code.
-func OutputPackage(outputPkg string) Option {
+// OutputPkg sets an alternative package name for generated code.
+func OutputPkg(outputPkg string) Option {
 	return func(r *Renderer) error {
 		r.outputPkg = outputPkg
 		return nil

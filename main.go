@@ -5,36 +5,18 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"path"
 
 	_ "github.com/huangjunwen/sqlw/driver/mysql"
 
 	"github.com/huangjunwen/sqlw/dbcontext"
 	"github.com/huangjunwen/sqlw/render"
-	//_ "github.com/huangjunwen/sqlw/stmt/directive"
 )
-
-type PrefixFS struct {
-	prefix string
-	fs     http.FileSystem
-}
-
-func newPrefixFS(prefix string, fs http.FileSystem) *PrefixFS {
-	return &PrefixFS{
-		prefix: prefix,
-		fs:     fs,
-	}
-}
-
-func (fs *PrefixFS) Open(name string) (http.File, error) {
-	return fs.fs.Open(path.Join("/template", fs.prefix, name))
-}
 
 var (
 	driverName     string
 	dataSourceName string
 	outputDir      string
-	outputPackage  string
+	outputPkg      string
 	stmtDir        string
 	tmplDir        string
 )
@@ -44,7 +26,7 @@ func main() {
 	flag.StringVar(&driverName, "driver", "mysql", "Driver name. (e.g. 'mysql')")
 	flag.StringVar(&dataSourceName, "dsn", "root:123456@tcp(localhost:3306)/dev?parseTime=true", "Data source name. ")
 	flag.StringVar(&outputDir, "out", "models", "Output directory for generated code.")
-	flag.StringVar(&outputPackage, "pkg", "", "Alternative package name of the generated code.")
+	flag.StringVar(&outputPkg, "pkg", "", "Alternative package name of the generated code.")
 	flag.StringVar(&stmtDir, "stmt", "", "Statement xml directory.")
 	flag.StringVar(&tmplDir, "tmpl", "", "Custom templates directory.")
 	flag.Parse()
@@ -56,25 +38,25 @@ func main() {
 	}
 
 	// Extract database information.
-	ctx, err := dbcontext.NewDBCtx(driverName, dataSourceName)
+	dbctx, err := dbcontext.NewDBCtx(driverName, dataSourceName)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ctx.Close()
+	defer dbctx.Close()
 
 	// Choose template.
 	fs := http.FileSystem(nil)
 	if tmplDir != "" {
 		fs = http.Dir(tmplDir)
 	} else {
-		fs = newPrefixFS(ctx.DriverName(), FS(false))
+		fs = newPrefixFS(dbctx.DriverName(), FS(false))
 	}
 
-	// Render.
+	// Create Renderer.
 	renderer, err := render.NewRenderer(
-		render.DBCtx(ctx),
+		render.DBCtx(dbctx),
 		render.OutputDir(outputDir),
-		render.OutputPackage(outputPackage),
+		render.OutputPkg(outputPkg),
 		render.StmtDir(stmtDir),
 		render.TmplFS(fs),
 	)

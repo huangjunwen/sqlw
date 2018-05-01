@@ -19,7 +19,7 @@ import (
 // Renderer is used for generating code.
 type Renderer struct {
 	// Options
-	ctx       *dbcontext.DBCtx
+	dbctx     *dbcontext.DBCtx
 	tmplFS    http.FileSystem
 	stmtDir   string
 	outputDir string
@@ -41,7 +41,7 @@ func NewRenderer(opts ...Option) (*Renderer, error) {
 		}
 	}
 
-	if r.ctx == nil {
+	if r.dbctx == nil {
 		return nil, fmt.Errorf("Missing DBContext")
 	}
 	if r.tmplFS == nil {
@@ -146,10 +146,10 @@ func (r *Renderer) Run() error {
 	if manifest.TableTemplate == "" {
 		return fmt.Errorf("Missing 'table_tmpl' in manifest.json")
 	}
-	for _, table := range r.ctx.DB().Tables() {
+	for _, table := range r.dbctx.DB().Tables() {
 		if err := r.render(manifest.TableTemplate, "table_"+table.TableName()+".go", map[string]interface{}{
 			"Table":       table,
-			"DBContext":   r.ctx,
+			"DBContext":   r.dbctx,
 			"PackageName": r.outputPkg,
 		}); err != nil {
 			return err
@@ -180,7 +180,7 @@ func (r *Renderer) Run() error {
 
 			stmtInfos := []*statement.StmtInfo{}
 			for _, elem := range doc.ChildElements() {
-				stmtInfo, err := statement.NewStmtInfo(r.ctx, elem)
+				stmtInfo, err := statement.NewStmtInfo(r.dbctx, elem)
 				if err != nil {
 					return err
 				}
@@ -189,7 +189,7 @@ func (r *Renderer) Run() error {
 
 			if err := r.render(manifest.StmtTemplate, "stmt_"+strings.Split(stmtFileName, ".")[0]+".go", map[string]interface{}{
 				"Stmts":       stmtInfos,
-				"DBContext":   r.ctx,
+				"DBContext":   r.dbctx,
 				"PackageName": r.outputPkg,
 			}); err != nil {
 				return err
@@ -203,7 +203,7 @@ func (r *Renderer) Run() error {
 		// Render.
 		fileName := "extra_" + strings.Split(tmplName, ".")[0] + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{
-			"DBContext":   r.ctx,
+			"DBContext":   r.dbctx,
 			"PackageName": r.outputPkg,
 		}); err != nil {
 			return err
