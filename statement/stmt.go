@@ -30,7 +30,7 @@ type StmtInfo struct {
 //   </select>
 //
 // A statement xml element contains SQL statement fragments and special directives.
-func NewStmtInfo(ctx *dbctx.DBContext, elem *etree.Element) (*StmtInfo, error) {
+func NewStmtInfo(ctx *dbctx.DBCtx, elem *etree.Element) (*StmtInfo, error) {
 
 	info := &StmtInfo{
 		locals: map[interface{}]interface{}{},
@@ -59,7 +59,7 @@ func NewStmtInfo(ctx *dbctx.DBContext, elem *etree.Element) (*StmtInfo, error) {
 
 }
 
-func (info *StmtInfo) processElem(ctx *dbctx.DBContext, elem *etree.Element) error {
+func (info *StmtInfo) processElem(ctx *dbctx.DBCtx, elem *etree.Element) error {
 
 	// Convert elem to a list of StmtDirective
 	directives := []Directive{}

@@ -62,7 +62,7 @@ func (d *wildcardDirective) locals() *WildcardInfo {
 	return d.stmt.Locals(wildcardLocalsKey).(*WildcardInfo)
 }
 
-func (d *wildcardDirective) Initialize(ctx *dbctx.DBContext, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *wildcardDirective) Initialize(ctx *dbctx.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
 	// Extract attributes.
 	elem := tok.(*etree.Element)
 

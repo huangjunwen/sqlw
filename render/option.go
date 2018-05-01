@@ -12,7 +12,7 @@ import (
 type Option func(*Renderer) error
 
 // DBContext sets the database context. (required)
-func DBContext(ctx *dbctx.DBContext) Option {
+func DBContext(ctx *dbctx.DBCtx) Option {
 	return func(r *Renderer) error {
 		r.ctx = ctx
 		return nil

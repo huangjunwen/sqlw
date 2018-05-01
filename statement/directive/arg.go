@@ -26,7 +26,7 @@ type ArgInfo struct {
 	directives []*argDirective
 }
 
-func (d *argDirective) Initialize(ctx *dbctx.DBContext, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *argDirective) Initialize(ctx *dbctx.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	// Extract name/type from xml.

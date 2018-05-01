@@ -56,7 +56,7 @@ func main() {
 	}
 
 	// Extract database information.
-	ctx, err := dbctx.NewDBContext(driverName, dataSourceName)
+	ctx, err := dbctx.NewDBCtx(driverName, dataSourceName)
 	if err != nil {
 		log.Fatal(err)
 	}

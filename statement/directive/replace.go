@@ -15,7 +15,7 @@ type replaceDirective struct {
 	with   string
 }
 
-func (d *replaceDirective) Initialize(ctx *dbctx.DBContext, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *replaceDirective) Initialize(ctx *dbctx.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 	with := elem.SelectAttrValue("with", "")
 	if with == "" {

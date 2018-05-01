@@ -19,7 +19,7 @@ import (
 // Renderer is used for generating code.
 type Renderer struct {
 	// Options
-	ctx       *dbctx.DBContext
+	ctx       *dbctx.DBCtx
 	tmplFS    http.FileSystem
 	stmtDir   string
 	outputDir string
