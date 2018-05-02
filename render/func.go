@@ -108,27 +108,21 @@ func (r *Renderer) funcMap() template.FuncMap {
 				return "", err
 			}
 
+			scanTypes, found := r.scanTypeMap[primitiveScanType]
+			if !found {
+				return "", fmt.Errorf("Can't get scan type for %+q", primitiveScanType)
+			}
+
 			nullable, ok := typ.Nullable()
 			if !ok {
 				return "", fmt.Errorf("Nullable test not supported for driver %+q", ctx.DriverName())
 			}
 
-			ms := r.scanTypeMap
-			if ms == nil {
-				ms = DefaultScanTypeMap
-			}
-
-			m := ms[0]
 			if nullable {
-				m = ms[1]
+				return scanTypes[1], nil
 			}
+			return scanTypes[0], nil
 
-			scanType, found := m[primitiveScanType]
-			if !found {
-				return "", fmt.Errorf("Can't get scan type for %+q", primitiveScanType)
-			}
-
-			return scanType, nil
 		},
 
 		"ExtractArgInfo":      directive.ExtractArgInfo,

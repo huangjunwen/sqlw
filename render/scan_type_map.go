@@ -9,83 +9,56 @@ import (
 var (
 	// DefaultScanTypeMap maps all types to null.XXXX (github.com/guregu/null)
 	DefaultScanTypeMap = ScanTypeMap{
-		// For not nullable.
-		map[string]string{
-			"int":       "null.Int",
-			"uint":      "null.Int",
-			"int8":      "null.Int",
-			"uint8":     "null.Int",
-			"int16":     "null.Int",
-			"uint16":    "null.Int",
-			"int32":     "null.Int",
-			"uint32":    "null.Int",
-			"int64":     "null.Int",
-			"uint64":    "null.Int",
-			"float32":   "null.Float",
-			"float64":   "null.Float",
-			"bool":      "null.Bool",
-			"[]byte":    "null.String",
-			"string":    "null.String",
-			"time.Time": "null.Time",
-		},
-		// For nullable.
-		map[string]string{
-			"int":       "null.Int",
-			"uint":      "null.Int",
-			"int8":      "null.Int",
-			"uint8":     "null.Int",
-			"int16":     "null.Int",
-			"uint16":    "null.Int",
-			"int32":     "null.Int",
-			"uint32":    "null.Int",
-			"int64":     "null.Int",
-			"uint64":    "null.Int",
-			"float32":   "null.Float",
-			"float64":   "null.Float",
-			"bool":      "null.Bool",
-			"[]byte":    "null.String",
-			"string":    "null.String",
-			"time.Time": "null.Time",
-		},
+		"int":       [2]string{"null.Int", "null.Int"},
+		"uint":      [2]string{"null.Int", "null.Int"},
+		"int8":      [2]string{"null.Int", "null.Int"},
+		"uint8":     [2]string{"null.Int", "null.Int"},
+		"int16":     [2]string{"null.Int", "null.Int"},
+		"uint16":    [2]string{"null.Int", "null.Int"},
+		"int32":     [2]string{"null.Int", "null.Int"},
+		"uint32":    [2]string{"null.Int", "null.Int"},
+		"int64":     [2]string{"null.Int", "null.Int"},
+		"uint64":    [2]string{"null.Int", "null.Int"},
+		"float32":   [2]string{"null.Float", "null.Float"},
+		"float64":   [2]string{"null.Float", "null.Float"},
+		"bool":      [2]string{"null.Bool", "null.Bool"},
+		"[]byte":    [2]string{"null.String", "null.String"},
+		"string":    [2]string{"null.String", "null.String"},
+		"time.Time": [2]string{"null.Time", "null.Time"},
 	}
 )
 
 // ScanTypeMap maps primitive scan type to scan type.
 // [0] is for not nullable types.
 // [1] is for nullable types.
-type ScanTypeMap []map[string]string
+type ScanTypeMap map[string][2]string
 
-func NewScanTypeMap() ScanTypeMap {
-	return ScanTypeMap{
-		map[string]string{},
-		map[string]string{},
-	}
-}
-
+// Load scan type map from io.Reader.
 func (m *ScanTypeMap) Load(r io.Reader) error {
-	*m = NewScanTypeMap()
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(m); err != nil {
 		return err
 	}
-	if len(*m) != 2 {
-		return fmt.Errorf("Scan type map should have length 2 (one for not-nullable and one for nullable)")
+	for k, _ := range DefaultScanTypeMap {
+		v, ok := (*m)[k]
+		if !ok {
+			return fmt.Errorf("Type %+q in scan type map is missing", k)
+		}
+		if v[0] == "" {
+			return fmt.Errorf("Type %+q in scan type map has empty value for not nullable type", k)
+		}
+		if v[1] == "" {
+			return fmt.Errorf("Type %+q in scan type map has empty value for nullable type", k)
+		}
 	}
 	return nil
 }
 
-// Merge two ScanTypeMap and return the new merged one.
-func (m ScanTypeMap) Merge(n ScanTypeMap) ScanTypeMap {
-	ret := NewScanTypeMap()
-	for i := 0; i < 2; i++ {
-		for k, v := range m[i] {
-			ret[i][k] = v
-		}
-	}
-	for i := 0; i < 2; i++ {
-		for k, v := range n[i] {
-			ret[i][k] = v
-		}
+// Copy the scan type map.
+func (m *ScanTypeMap) Copy() ScanTypeMap {
+	ret := ScanTypeMap{}
+	for k, v := range *m {
+		ret[k] = v
 	}
 	return ret
 }

@@ -33,7 +33,7 @@ type Renderer struct {
 func NewRenderer(opts ...Option) (*Renderer, error) {
 	r := &Renderer{
 		templates:   make(map[string]*template.Template),
-		scanTypeMap: DefaultScanTypeMap,
+		scanTypeMap: DefaultScanTypeMap.Copy(),
 	}
 	for _, op := range opts {
 		if err := op(r); err != nil {
@@ -134,12 +134,12 @@ func (r *Renderer) Run() error {
 		}
 		defer scanTypeMapFile.Close()
 
-		scanTypeMap := NewScanTypeMap()
+		scanTypeMap := ScanTypeMap{}
 		if err := scanTypeMap.Load(scanTypeMapFile); err != nil {
 			return err
 		}
 
-		r.scanTypeMap = r.scanTypeMap.Merge(scanTypeMap)
+		r.scanTypeMap = scanTypeMap
 	}
 
 	// Render tables.
