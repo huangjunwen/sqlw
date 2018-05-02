@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/huangjunwen/sqlw/driver"
 	"github.com/huangjunwen/sqlw/statement/directive"
 )
 
@@ -106,6 +107,9 @@ func (r *Renderer) funcMap() template.FuncMap {
 			primitiveScanType, err := ctx.Drv().PrimitiveScanType(typ)
 			if err != nil {
 				return "", err
+			}
+			if !driver.IsPrimitiveScanType(primitiveScanType) {
+				return "", fmt.Errorf("%+q is not a primitive can type", primitiveScanType)
 			}
 
 			scanTypes, found := r.scanTypeMap[primitiveScanType]

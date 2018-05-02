@@ -6,7 +6,7 @@ import (
 )
 
 type Manifest struct {
-	ScanTypeMap    string   `json:"scan_type_map"` // optional
+	ScanTypeMap    string   `json:"scan_type_map"` // required
 	TableTemplate  string   `json:"table_tmpl"`    // required
 	StmtTemplate   string   `json:"stmt_tmpl"`     // required
 	ExtraTemplates []string `json:"extra_tmpls"`   // optional

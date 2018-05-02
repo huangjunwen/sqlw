@@ -24,12 +24,7 @@ type Drv interface {
 	// ExtractFK extracts information of a given foreign key constraint.
 	ExtractFK(conn *sql.DB, tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error)
 
-	// PrimitiveScanType returns go primitive scanning type (ignore nullable) of a column type. Must be one of:
-	// - int/uint/int8/uint8/int16/uint16/int32/uint32/int64/uint64
-	// - float32/float64
-	// - bool
-	// - []byte/string
-	// - time.Time
+	// PrimitiveScanType returns go primitive scanning type (ignore nullable) of a column type. Must be one of PrimitiveScanTypes.
 	PrimitiveScanType(typ *sql.ColumnType) (string, error)
 }
 

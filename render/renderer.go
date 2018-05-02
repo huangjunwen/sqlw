@@ -32,8 +32,7 @@ type Renderer struct {
 // NewRenderer create new Renderer.
 func NewRenderer(opts ...Option) (*Renderer, error) {
 	r := &Renderer{
-		templates:   make(map[string]*template.Template),
-		scanTypeMap: DefaultScanTypeMap.Copy(),
+		templates: make(map[string]*template.Template),
 	}
 	for _, op := range opts {
 		if err := op(r); err != nil {
@@ -50,7 +49,6 @@ func NewRenderer(opts ...Option) (*Renderer, error) {
 	if r.outputDir == "" {
 		return nil, fmt.Errorf("Missing output directory")
 	}
-
 	if r.outputPkg == "" {
 		r.outputPkg = path.Base(r.outputDir)
 	}
@@ -126,21 +124,21 @@ func (r *Renderer) Run() error {
 		return err
 	}
 
-	// Load custom scan type map.
-	if manifest.ScanTypeMap != "" {
-		scanTypeMapFile, err := r.tmplFS.Open(manifest.ScanTypeMap)
-		if err != nil {
-			return err
-		}
-		defer scanTypeMapFile.Close()
-
-		scanTypeMap := ScanTypeMap{}
-		if err := scanTypeMap.Load(scanTypeMapFile); err != nil {
-			return err
-		}
-
-		r.scanTypeMap = scanTypeMap
+	// Load scan type map.
+	if manifest.ScanTypeMap == "" {
+		return fmt.Errorf("Missing 'scan_type_map' in manifest.json")
 	}
+	scanTypeMapFile, err := r.tmplFS.Open(manifest.ScanTypeMap)
+	if err != nil {
+		return err
+	}
+	defer scanTypeMapFile.Close()
+
+	scanTypeMap, err := NewScanTypeMap(scanTypeMapFile)
+	if err != nil {
+		return err
+	}
+	r.scanTypeMap = scanTypeMap
 
 	// Render tables.
 	if manifest.TableTemplate == "" {
