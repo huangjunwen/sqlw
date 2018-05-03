@@ -68,3 +68,25 @@ func OutputPkg(outputPkg string) Option {
 		return nil
 	}
 }
+
+// Whitelist sets the whitelist of table names to render.
+func Whitelist(whitelist []string) Option {
+	return func(r *Renderer) error {
+		r.whitelist = make(map[string]struct{})
+		for _, tableName := range whitelist {
+			r.whitelist[tableName] = struct{}{}
+		}
+		return nil
+	}
+}
+
+// Blacklist sets the blacklist of table names not to render.
+func Blacklist(blacklist []string) Option {
+	return func(r *Renderer) error {
+		r.blacklist = make(map[string]struct{})
+		for _, tableName := range blacklist {
+			r.blacklist[tableName] = struct{}{}
+		}
+		return nil
+	}
+}

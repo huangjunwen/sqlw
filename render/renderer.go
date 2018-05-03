@@ -24,6 +24,8 @@ type Renderer struct {
 	stmtDir   string
 	outputDir string
 	outputPkg string
+	whitelist map[string]struct{}
+	blacklist map[string]struct{}
 
 	scanTypeMap ScanTypeMap
 	templates   map[string]*template.Template
@@ -51,6 +53,9 @@ func NewRenderer(opts ...Option) (*Renderer, error) {
 	}
 	if r.outputPkg == "" {
 		r.outputPkg = path.Base(r.outputDir)
+	}
+	if len(r.whitelist) != 0 && len(r.blacklist) != 0 {
+		return nil, fmt.Errorf("Only one of whitelist or blacklist can be specified")
 	}
 
 	return r, nil
@@ -145,6 +150,15 @@ func (r *Renderer) Run() error {
 		return fmt.Errorf("Missing 'table_tmpl' in manifest.json")
 	}
 	for _, table := range r.dbctx.DB().Tables() {
+		if len(r.whitelist) != 0 {
+			if _, found := r.whitelist[table.TableName()]; !found {
+				continue
+			}
+		} else if len(r.blacklist) != 0 {
+			if _, found := r.blacklist[table.TableName()]; found {
+				continue
+			}
+		}
 		if err := r.render(manifest.TableTemplate, "table_"+table.TableName()+".go", map[string]interface{}{
 			"Table":       table,
 			"DBContext":   r.dbctx,

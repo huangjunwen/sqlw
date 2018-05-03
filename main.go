@@ -5,12 +5,24 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"strings"
 
 	_ "github.com/huangjunwen/sqlw/driver/mysql"
 
 	"github.com/huangjunwen/sqlw/dbcontext"
 	"github.com/huangjunwen/sqlw/render"
 )
+
+type commaSeperatd []string
+
+func (cs *commaSeperatd) String() string {
+	return strings.Join(*cs, ",")
+}
+
+func (cs *commaSeperatd) Set(s string) error {
+	*cs = strings.Split(s, ",")
+	return nil
+}
 
 var (
 	driverName     string
@@ -19,6 +31,8 @@ var (
 	outputPkg      string
 	stmtDir        string
 	tmplDir        string
+	whitelist      commaSeperatd
+	blacklist      commaSeperatd
 )
 
 func main() {
@@ -29,6 +43,8 @@ func main() {
 	flag.StringVar(&outputPkg, "pkg", "", "Alternative package name of the generated code.")
 	flag.StringVar(&stmtDir, "stmt", "", "Statement xml directory.")
 	flag.StringVar(&tmplDir, "tmpl", "", "Custom templates directory.")
+	flag.Var(&whitelist, "whitelist", "Comma seperated table names to render.")
+	flag.Var(&blacklist, "blacklist", "Comma seperated table names not to render.")
 	flag.Parse()
 	if driverName == "" {
 		log.Fatalf("Missing -driver")
@@ -59,6 +75,8 @@ func main() {
 		render.OutputPkg(outputPkg),
 		render.StmtDir(stmtDir),
 		render.TmplFS(fs),
+		render.Whitelist([]string(whitelist)),
+		render.Blacklist([]string(blacklist)),
 	)
 	if err != nil {
 		log.Fatal(err)
