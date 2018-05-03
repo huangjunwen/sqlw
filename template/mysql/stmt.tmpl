@@ -3,6 +3,7 @@ package {{ .PackageName }}
 import (
   "context"
   "text/template"
+  "database/sql"
 
   "github.com/jmoiron/sqlx"
 	"gopkg.in/guregu/null.v3"
@@ -18,7 +19,8 @@ import (
 
   {{ if eq $stmtType "SELECT" }}
 
-    {{ $noTmpl := $varInfo.Has "no_tmpl" }}
+    {{ $noTemplate := $varInfo.Has "no_template" }}
+    {{ $inQuery := $varInfo.Has "in_query" }}
 
 // {{ $stmtName }}Result is the result of {{ $stmtName }}.
 type {{ $stmtName }}Result struct {
@@ -38,8 +40,21 @@ type {{ $stmtName }}Result struct {
     {{ end -}}
 }
 
+func (r *{{ $stmtName }}Result) scanFrom(rows *sql.Rows) error {
+  return rows.Scan(
+{{ range $i, $resultColumnName := $stmt.ResultColumnNames -}}
+  {{ $wildcardColumn := $wildcardInfo.WildcardColumn $i -}}
+  {{ if $wildcardColumn.Valid -}}
+  &r.{{ UpperCamel $wildcardColumn.Table.TableName }}.{{ UpperCamel $wildcardColumn.ColumnName }},
+  {{ else -}}
+  &r.{{ UpperCamel $resultColumnName }},
+  {{ end -}}
+{{ end -}}
+  )
+}
+
 var (
-{{ if $noTmpl -}}
+{{ if $noTemplate -}}
   stmt{{ $stmtName }} = {{ Literal $stmt.StmtText }} 
 {{ else -}}
   stmtTmpl{{ $stmtName }} = template.Must(template.New("{{ $stmtName }}").Parse({{ Literal $stmt.StmtText }}))
@@ -62,7 +77,7 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
 {{- end }}
   }
 
-{{ if $noTmpl }}
+{{ if $noTemplate }}
   // Named query.
   namedQueryString_ := stmt{{ $stmtName }}
 {{ else }}
@@ -80,6 +95,14 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
     return nil, err_
   }
 
+{{ if $inQuery }}
+  // Expand "in" args.
+  query_, args_, err_ = sqlx.In(query_, args_)
+  if err_ != nil {
+    return nil, err_
+  }
+{{ end }}
+
   // Query
   rows_, err_ := q.QueryContext(ctx, query_, args_)
   if err_ != nil {
@@ -91,16 +114,7 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
   results_ := []*{{ $stmtName }}Result{}
   for rows_.Next() {
     result_ := &{{ $stmtName }}Result{}
-    if err_ := rows_.Scan(
-    {{ range $i, $resultColumnName := $stmt.ResultColumnNames -}}
-      {{ $wildcardColumn := $wildcardInfo.WildcardColumn $i -}}
-      {{ if $wildcardColumn.Valid -}}
-      &result_.{{ UpperCamel $wildcardColumn.Table.TableName }}.{{ UpperCamel $wildcardColumn.ColumnName }},
-      {{ else -}}
-      &result_.{{ UpperCamel $resultColumnName }},
-      {{ end -}}
-    {{ end -}}
-    ); err_ != nil {
+    if err_ := result_.scanFrom(rows_); err_ != nil {
       return nil, err_
     }
     results_ = append(results_, result_)
