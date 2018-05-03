@@ -1,12 +1,23 @@
 package {{ .PackageName }}
 
 import (
+  "fmt"
   "context"
   "text/template"
   "database/sql"
 
   "github.com/jmoiron/sqlx"
 	"gopkg.in/guregu/null.v3"
+)
+
+var (
+  // Avoid "imported and not used" errors.
+  _ = fmt.Stringer(nil)
+  _ = context.Context(nil)
+  _ = template.FuncMap(nil)
+  _ = sql.Scanner(nil)
+  _ = sqlx.Execer(nil)
+  _ = null.Int{}
 )
 
 {{ range $stmt := .Stmts }}
@@ -16,11 +27,20 @@ import (
   {{ $argInfo := ExtractArgInfo $stmt }}
   {{ $varInfo := ExtractVarInfo $stmt }}
   {{ $wildcardInfo := ExtractWildcardInfo $stmt }}
+  {{ $useTemplate := $varInfo.Has "use_template" }}
+
+var (
+{{ if $useTemplate -}}
+  stmtTmpl{{ $stmtName }} = template.Must(template.New("{{ $stmtName }}").Parse({{ Literal $stmt.StmtText }}))
+{{ else -}}
+  stmt{{ $stmtName }} = {{ Literal $stmt.StmtText }} 
+{{ end -}}
+)
 
   {{ if eq $stmtType "SELECT" }}
 
-    {{ $noTemplate := $varInfo.Has "no_template" }}
     {{ $inQuery := $varInfo.Has "in_query" }}
+    {{ $return := $varInfo.Value "return" }}
 
 // {{ $stmtName }}Result is the result of {{ $stmtName }}.
 type {{ $stmtName }}Result struct {
@@ -53,21 +73,13 @@ func (r *{{ $stmtName }}Result) scanFrom(rows *sql.Rows) error {
   )
 }
 
-var (
-{{ if $noTemplate -}}
-  stmt{{ $stmtName }} = {{ Literal $stmt.StmtText }} 
-{{ else -}}
-  stmtTmpl{{ $stmtName }} = template.Must(template.New("{{ $stmtName }}").Parse({{ Literal $stmt.StmtText }}))
-{{ end -}}
-)
-
 func {{ $stmtName }}(ctx context.Context, q Queryer
 {{- range $i := N $argInfo.NumArg -}}
   {{- $argName := $argInfo.ArgName $i -}}
   {{- $argType := $argInfo.ArgType $i -}}
 , {{ $argName }} {{ $argType }}
 {{- end -}}
-) ([]*{{ $stmtName }}Result, error) {
+) ({{ if or (eq $return "one") (eq $return "first") }}*{{ else }}[]*{{ end }}{{ $stmtName }}Result, error) {
 
   // Data
   data_ := map[string]interface{}{
@@ -77,16 +89,16 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
 {{- end }}
   }
 
-{{ if $noTemplate }}
-  // Named query.
-  namedQueryString_ := stmt{{ $stmtName }}
-{{ else }}
+{{ if $useTemplate }}
   // Template -> named query
   namedQuery_ := newWriterStringer()
   if err_ := stmtTmpl{{ $stmtName }}.Execute(namedQuery_, data_); err_ != nil {
     return nil, err_
   }
   namedQueryString_ := namedQuery_.String()
+{{ else }}
+  // Named query.
+  namedQueryString_ := stmt{{ $stmtName }}
 {{ end }}
 
   // Named query -> query
@@ -110,7 +122,31 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
   }
   defer rows_.Close()
 
-  // Results
+{{ if eq $return "first" }}
+  // Return first row
+  if !rows_.Next() {
+    return nil, nil
+  }
+  result_ := &{{ $stmtName }}Result{}
+  if err_ := result_.scanFrom(rows_); err_ != nil {
+    return nil, err_
+  }
+  return result_, rows_.Err()
+{{ else if eq $return "one" }}
+  // Return one row
+  if !rows_.Next() {
+    return nil, nil
+  }
+  result_ := &{{ $stmtName }}Result{}
+  if err_ := result_.scanFrom(rows_); err_ != nil {
+    return nil, err_
+  }
+  if rows_.Next() {
+    return nil, fmt.Errorf("{{ $stmtName }} returns more than one row")
+  }
+  return result_, rows_.Err()
+{{ else }}
+  // Return rows
   results_ := []*{{ $stmtName }}Result{}
   for rows_.Next() {
     result_ := &{{ $stmtName }}Result{}
@@ -119,19 +155,13 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
     }
     results_ = append(results_, result_)
   }
-  if err_ := rows_.Err(); err_ != nil {
-    return nil, err_
-  }
-  
-  return results_, nil
+  return results_, rows_.Err()
+{{ end }}
 }
-
-
-  {{ else if eq $stmtType "UPDATE" }}
-
 
   {{ else if eq $stmtType "DELETE" }}
 
+  {{ else if eq $stmtType "UPDATE" }}
 
   {{ else if eq $stmtType "INSERT" }}
 
