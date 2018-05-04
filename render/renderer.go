@@ -199,7 +199,8 @@ func (r *Renderer) Run() error {
 				stmtInfos = append(stmtInfos, stmtInfo)
 			}
 
-			if err := r.render(manifest.StmtTemplate, "stmt_"+strings.Split(stmtFileName, ".")[0]+".go", map[string]interface{}{
+			fileName := "stmt_" + stripSuffix(stmtFileName) + ".go"
+			if err := r.render(manifest.StmtTemplate, fileName, map[string]interface{}{
 				"Stmts":       stmtInfos,
 				"DBContext":   r.dbctx,
 				"PackageName": r.outputPkg,
@@ -213,7 +214,7 @@ func (r *Renderer) Run() error {
 	// Render extra files.
 	for _, tmplName := range manifest.ExtraTemplates {
 		// Render.
-		fileName := "extra_" + strings.Split(tmplName, ".")[0] + ".go"
+		fileName := "extra_" + stripSuffix(tmplName) + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{
 			"DBContext":   r.dbctx,
 			"PackageName": r.outputPkg,
@@ -223,4 +224,12 @@ func (r *Renderer) Run() error {
 	}
 
 	return nil
+}
+
+func stripSuffix(s string) string {
+	i := strings.LastIndexByte(s, '.')
+	if i < 0 {
+		return s
+	}
+	return s[:i]
 }
