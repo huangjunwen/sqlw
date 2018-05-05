@@ -287,9 +287,11 @@ func (driver mysqlDrv) Quote(identifier string) string {
 }
 
 func extractDBName(conn *sql.DB) (string, error) {
-	dbName := ""
+	var dbName sql.NullString
+	// NOTE: https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_database
+	// SELECT DATABASE() returns current database or NULL if there is no current default database.
 	err := conn.QueryRow("SELECT DATABASE()").Scan(&dbName)
-	return dbName, err
+	return dbName.String, err
 }
 
 func init() {
