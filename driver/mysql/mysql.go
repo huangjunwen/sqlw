@@ -282,6 +282,10 @@ func (driver mysqlDrv) PrimitiveScanType(typ *sql.ColumnType) (string, error) {
 	return "", fmt.Errorf("Not support column type %s", typ.ScanType().String())
 }
 
+func (driver mysqlDrv) Quote(identifier string) string {
+	return fmt.Sprintf("`%s`", identifier)
+}
+
 func extractDBName(conn *sql.DB) (string, error) {
 	dbName := ""
 	err := conn.QueryRow("SELECT DATABASE()").Scan(&dbName)

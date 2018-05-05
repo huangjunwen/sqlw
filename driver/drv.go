@@ -26,6 +26,9 @@ type Drv interface {
 
 	// PrimitiveScanType returns go primitive scanning type (ignore nullable) of a column type. Must be one of PrimitiveScanTypes.
 	PrimitiveScanType(typ *sql.ColumnType) (string, error)
+
+	// Quote returns the quoted identifier.
+	Quote(identifier string) string
 }
 
 // DrvWithAutoInc is Drv having single auto increment column support (e.g. MySQL)

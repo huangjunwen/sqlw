@@ -37,12 +37,14 @@ func buildInsert(entry TableEntry) (string, []interface{}) {
       cols = append(cols, ", "...)
       phs = append(phs, ", "...)
     }
+    cols = append(cols, '`')
     cols = append(cols, info.ColumnName(i)...)
+    cols = append(cols, '`')
     phs = append(phs, '?')
     args = append(args, val)
   }
 
-  return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", info.TableName(), cols, phs), args
+  return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", info.TableName(), cols, phs), args
 
 }
 
@@ -74,8 +76,9 @@ func buildUpdate(entry, newEntry TableEntry) (string, []interface{}, error) {
       if len(assignmentList) != 0 {
         assignmentList = append(assignmentList, ", "...)
       }
+      assignmentList = append(assignmentList, '`')
       assignmentList = append(assignmentList, columnName...)
-      assignmentList = append(assignmentList, "=?"...)
+      assignmentList = append(assignmentList, "`=?"...)
       assignmentArgs = append(assignmentArgs, newVal)
       continue
     }
@@ -95,20 +98,22 @@ func buildUpdate(entry, newEntry TableEntry) (string, []interface{}, error) {
     if len(primaryList) != 0 {
       primaryList = append(primaryList, " AND "...)
     }
+    primaryList = append(primaryList, '`')
     primaryList = append(primaryList, columnName...)
-    primaryList = append(primaryList, "=?"...)
+    primaryList = append(primaryList, "`=?"...)
     primaryArgs = append(primaryArgs, val)
 
     // Add " id1=id1, ..." in assignment list as a no-op.
     if len(assignmentList) != 0 {
       assignmentList = append(assignmentList, ", "...)
     }
+    assignmentList = append(assignmentList, '`')
     assignmentList = append(assignmentList, columnName...)
-    assignmentList = append(assignmentList, "="...)
+    assignmentList = append(assignmentList, "`="...)
     assignmentList = append(assignmentList, columnName...)
 
   }
 
-  return fmt.Sprintf("UPDATE %s SET %s WHERE %s", info.TableName(), assignmentList, primaryList), append(assignmentArgs, primaryArgs...), nil
+  return fmt.Sprintf("UPDATE `%s` SET %s WHERE %s", info.TableName(), assignmentList, primaryList), append(assignmentArgs, primaryArgs...), nil
 
 }

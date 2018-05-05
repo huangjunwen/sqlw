@@ -29,6 +29,7 @@ var (
 
 // WildcardInfo contain wildcard information in a statement.
 type WildcardInfo struct {
+	dbctx           *dbcontext.DBCtx
 	marker          string
 	directives      []*wildcardDirective
 	resultProcessed bool
@@ -39,18 +40,22 @@ type WildcardInfo struct {
 }
 
 func (d *wildcardDirective) expansion() string {
+	dbctx := d.stmt.Locals(wildcardLocalsKey).(*WildcardInfo).dbctx
+
 	prefix := d.tableAlias
 	if prefix == "" {
 		prefix = d.table.TableName()
 	}
+	prefix = dbctx.Drv().Quote(prefix)
 
 	fragments := []string{}
 	for i := 0; i < d.table.NumColumn(); i++ {
 		if i != 0 {
 			fragments = append(fragments, ", ")
 		}
-		column := d.table.Column(i)
-		fragments = append(fragments, fmt.Sprintf("%s.%s", prefix, column.ColumnName()))
+		columnName := d.table.Column(i).ColumnName()
+		columnName = dbctx.Drv().Quote(columnName)
+		fragments = append(fragments, fmt.Sprintf("%s.%s", prefix, columnName))
 	}
 
 	return strings.Join(fragments, "")
@@ -81,7 +86,7 @@ func (d *wildcardDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.S
 	// Stores in locals.
 	locals := stmt.Locals(wildcardLocalsKey)
 	if locals == nil {
-		locals = newWildcardInfo()
+		locals = newWildcardInfo(dbctx)
 		stmt.SetLocals(wildcardLocalsKey, locals)
 	}
 	info := locals.(*WildcardInfo)
@@ -107,13 +112,14 @@ func (d *wildcardDirective) ProcessQueryResult(resultColumnNames *[]string, resu
 	return d.locals().processQueryResult(resultColumnNames, resultColumnTypes)
 }
 
-func newWildcardInfo() *WildcardInfo {
+func newWildcardInfo(dbctx *dbcontext.DBCtx) *WildcardInfo {
 	buf := make([]byte, 8)
 	if _, err := rand.Read(buf); err != nil {
 		panic(err)
 	}
 	marker := hex.EncodeToString(buf)
 	return &WildcardInfo{
+		dbctx: dbctx,
 		// NOTE: Identiy must starts with letter so add a prefix.
 		marker: "wc" + marker,
 	}
