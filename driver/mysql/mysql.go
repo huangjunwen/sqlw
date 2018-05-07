@@ -54,7 +54,7 @@ func (driver mysqlDrv) ExtractTableNames(conn *sql.DB) (tableNames []string, err
 }
 
 func (driver mysqlDrv) ExtractColumns(conn *sql.DB, tableName string) (columnNames []string, columnTypes []*sql.ColumnType, err error) {
-	rows, err := conn.Query("SELECT * FROM " + tableName)
+	rows, err := conn.Query("SELECT * FROM `" + tableName + "`")
 	if err != nil {
 		return nil, nil, err
 	}
