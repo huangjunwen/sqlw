@@ -204,11 +204,8 @@ func TestExtractTableInfo(t *testing.T) {
 		}
 
 		{
-			// NOTE: Already tested before, so skip it
 			indexNames, _ := drv.ExtractIndexNames(conn, "order")
-			indexName := indexNames[0]
-
-			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "order", indexName)
+			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "order", indexNames[0])
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
 			assert.Equal(columnNames[0], "by")
@@ -237,8 +234,7 @@ func TestExtractTableInfo(t *testing.T) {
 	{
 		{
 			fkNames, _ := drv.ExtractFKNames(conn, "order")
-			fkName := fkNames[0]
-			columnNames, refTableName, refColumnNames, err := drv.ExtractFK(conn, "order", fkName)
+			columnNames, refTableName, refColumnNames, err := drv.ExtractFK(conn, "order", fkNames[0])
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
 			assert.Equal(columnNames[0], "by")
@@ -249,3 +245,42 @@ func TestExtractTableInfo(t *testing.T) {
 	}
 
 }
+
+/*
+
+func TestExtractTableInfo(t *testing.T) {
+
+	assert := assert.New(t)
+
+	defer testutils.CatchDBExecPanic()
+	exec := func(query string, args ...interface{}) {
+		testutils.DBExec(t, conn, query, args...)
+	}
+
+	exec("CREATE DATABASE testing")
+	defer func() {
+		conn.Exec("DROP DATABASE testing")
+	}()
+	exec("USE testing")
+
+	exec("" +
+		"CREATE TABLE `c` (" +
+		" `f32` FLOAT, " +
+		" `f64` DOUBLE, " +
+		" `b` BOOL, " +
+		" `i8` TINYINT, " +
+		" `ui8` TINYINT UNSIGNED, " +
+		" `i16` SMALLINT, " +
+		" `ui16` SMALLINT UNSIGNED, " +
+		" `i24` MEDIUMINT, " +
+		" `ui24` MEDIUMINT UNSIGNED, " +
+		" `i32` INT, " +
+		" `ui32` INT UNSIGNED, " +
+		" `i64` BIGINT, " +
+		" `ui64` BIGINT UNSIGNED, " +
+		" KEY `index` (`join`)" +
+		")")
+
+}
+
+*/
