@@ -48,15 +48,15 @@ func TestNoDBSelected(t *testing.T) {
 	// --- extractDBName ---
 	{
 		dbName, err := extractDBName(conn)
+		assert.Error(err)
 		assert.Equal("", dbName)
-		assert.NoError(err)
 	}
 
 	// --- ExtractTableNames --
 	{
 		tableNames, err := drv.ExtractTableNames(conn)
-		assert.Len(tableNames, 0)
 		assert.Error(err)
+		assert.Len(tableNames, 0)
 	}
 
 }
@@ -118,12 +118,11 @@ func TestExtractTableInfo(t *testing.T) {
 
 	// --- ExtractColumns ---
 	{
-		columnNames, columnTypes, err := drv.ExtractColumns(conn, "where")
+		columns, err := drv.ExtractColumns(conn, "where")
 		assert.NoError(err)
-		assert.Len(columnNames, 2)
-		assert.Len(columnTypes, 2)
-		assert.Equal(columnNames[0], "and")
-		assert.Equal(columnNames[1], "or")
+		assert.Len(columns, 2)
+		assert.Equal("and", columns[0].ColumnName)
+		assert.Equal("or", columns[1].ColumnName)
 	}
 
 	// -- ExtractAutoIncColumn ---
@@ -131,13 +130,13 @@ func TestExtractTableInfo(t *testing.T) {
 		{
 			columnName, err := drv.ExtractAutoIncColumn(conn, "group")
 			assert.NoError(err)
-			assert.Equal(columnName, "by")
+			assert.Equal("by", columnName)
 		}
 
 		{
 			columnName, err := drv.ExtractAutoIncColumn(conn, "where")
 			assert.NoError(err)
-			assert.Equal(columnName, "")
+			assert.Equal("", columnName)
 		}
 	}
 
@@ -147,21 +146,21 @@ func TestExtractTableInfo(t *testing.T) {
 			indexNames, err := drv.ExtractIndexNames(conn, "from")
 			assert.NoError(err)
 			assert.Len(indexNames, 1)
-			assert.Equal(indexNames[0], "index")
+			assert.Equal("index", indexNames[0])
 		}
 
 		{
 			indexNames, err := drv.ExtractIndexNames(conn, "where")
 			assert.NoError(err)
 			assert.Len(indexNames, 1)
-			assert.Equal(indexNames[0], "index")
+			assert.Equal("index", indexNames[0])
 		}
 
 		{
 			indexNames, err := drv.ExtractIndexNames(conn, "group")
 			assert.NoError(err)
 			assert.Len(indexNames, 1)
-			assert.Equal(indexNames[0], "PRIMARY")
+			assert.Equal("PRIMARY", indexNames[0])
 		}
 
 		{
@@ -179,7 +178,7 @@ func TestExtractTableInfo(t *testing.T) {
 			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "from", "index")
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
-			assert.Equal(columnNames[0], "join")
+			assert.Equal("join", columnNames[0])
 			assert.False(isPrimary)
 			assert.False(isUnique)
 		}
@@ -188,8 +187,8 @@ func TestExtractTableInfo(t *testing.T) {
 			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "where", "index")
 			assert.NoError(err)
 			assert.Len(columnNames, 2)
-			assert.Equal(columnNames[0], "or")
-			assert.Equal(columnNames[1], "and")
+			assert.Equal("or", columnNames[0])
+			assert.Equal("and", columnNames[1])
 			assert.False(isPrimary)
 			assert.True(isUnique)
 		}
@@ -198,7 +197,7 @@ func TestExtractTableInfo(t *testing.T) {
 			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "group", "PRIMARY")
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
-			assert.Equal(columnNames[0], "by")
+			assert.Equal("by", columnNames[0])
 			assert.True(isPrimary)
 			assert.True(isUnique)
 		}
@@ -208,7 +207,7 @@ func TestExtractTableInfo(t *testing.T) {
 			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "order", indexNames[0])
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
-			assert.Equal(columnNames[0], "by")
+			assert.Equal("by", columnNames[0])
 			assert.False(isPrimary)
 			assert.False(isUnique)
 		}
@@ -237,10 +236,10 @@ func TestExtractTableInfo(t *testing.T) {
 			columnNames, refTableName, refColumnNames, err := drv.ExtractFK(conn, "order", fkNames[0])
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
-			assert.Equal(columnNames[0], "by")
-			assert.Equal(refTableName, "group")
+			assert.Equal("by", columnNames[0])
+			assert.Equal("group", refTableName)
 			assert.Len(refColumnNames, 1)
-			assert.Equal(refColumnNames[0], "by")
+			assert.Equal("by", refColumnNames[0])
 		}
 	}
 

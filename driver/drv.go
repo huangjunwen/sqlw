@@ -4,13 +4,32 @@ import (
 	"database/sql"
 )
 
+// Column represents query result column.
+type Column struct {
+	// ColumnName is the name of the column.
+	ColumnName string
+
+	// DataType is a driver-specific type identifier (ignore nullable), such as:
+	// - uint24
+	// - json
+	// - time
+	// It is used in scan type mapping.
+	DataType string
+
+	// Nullable is true if the column can have NULL value.
+	Nullable bool
+}
+
 // Drv is the common interface to talk to different database systems.
 type Drv interface {
+	// ExtractQuery returns result columns of a query.
+	ExtractQuery(conn *sql.DB, query string) (columns []Column, err error)
+
 	// ExtractTableNames extracts all table names in current database (schema).
 	ExtractTableNames(conn *sql.DB) (tableNames []string, err error)
 
-	// ExtractColumns extracts all columns' name and type in a table.
-	ExtractColumns(conn *sql.DB, tableName string) (columnNames []string, columnTypes []*sql.ColumnType, err error)
+	// ExtractColumns extracts columns of a given table.
+	ExtractColumns(conn *sql.DB, tableName string) (columns []Column, err error)
 
 	// ExtractIndexNames extracts all index (key) name for a given table.
 	ExtractIndexNames(conn *sql.DB, tableName string) (indexNames []string, err error)
@@ -24,8 +43,8 @@ type Drv interface {
 	// ExtractFK extracts information of a given foreign key constraint.
 	ExtractFK(conn *sql.DB, tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error)
 
-	// PrimitiveScanType returns go primitive scanning type (ignore nullable) of a column type. Must be one of PrimitiveScanTypes.
-	PrimitiveScanType(typ *sql.ColumnType) (string, error)
+	// DataTypes list full list of driver-specific type identifiers.
+	DataTypes() []string
 
 	// Quote returns the quoted identifier.
 	Quote(identifier string) string

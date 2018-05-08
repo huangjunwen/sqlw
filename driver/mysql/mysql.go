@@ -18,6 +18,32 @@ var (
 )
 
 var (
+	// DataTypes is the full list of data type in mysql drv
+	DataTypes = []string{
+		// Float types
+		"float32",
+		"float64",
+		// Int types
+		"bool",
+		"int8",
+		"uint8",
+		"int16",
+		"uint16",
+		"int32",
+		"uint32",
+		"int64",
+		"uint64",
+		// Time types
+		"time",
+		// String types
+		"bit",
+		"set",
+		"json",
+		"string",
+	}
+)
+
+var (
 	// Copy from github.com/go-sql-driver/mysql/fields.go
 	scanTypeFloat32   = reflect.TypeOf(float32(0))
 	scanTypeFloat64   = reflect.TypeOf(float64(0))
@@ -36,8 +62,177 @@ var (
 	scanTypeUnknown   = reflect.TypeOf(new(interface{}))
 )
 
-func (driver mysqlDrv) ExtractTableNames(conn *sql.DB) (tableNames []string, err error) {
-	rows, err := conn.Query("SHOW TABLES")
+const (
+	// Copy from github.com/go-sql-driver/mysql/const.go
+	flagUnsigned = 1 << 5
+)
+
+func (drv mysqlDrv) ExtractQuery(conn *sql.DB, query string) (columns []driver.Column, err error) {
+	rows, err := conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+
+	columnTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, columnType := range columnTypes {
+
+		nullable, ok := columnType.Nullable()
+		if !ok {
+			panic(fmt.Errorf("Nullable() returns not ok"))
+		}
+
+		// XXX: From current driver's public API some information is lost:
+		// - Column type's length is not support yet (see https://github.com/go-sql-driver/mysql/pull/667)
+		// - Unsigned or not can't be determine when scan type is NullInt64
+		// Do some tricks to read them from private fields.
+		//
+		// NOTE: In general reading data from private field is not a good idea
+		field := reflect.
+			ValueOf(rows).          // *sql.Rows
+			Elem().                 // sql.Rows
+			FieldByName("rowsi").   // driver.Rows
+			Elem().                 // *mysql.mysqlRows
+			Elem().                 // mysql.mysqlRows
+			FieldByName("rs").      // mysql.resultSet
+			FieldByName("columns"). // []mysql.mysqlField
+			Index(i)                // mysql.mysqlField
+
+		length := field.FieldByName("length").Uint()
+		flags := field.FieldByName("flags").Uint()
+		isUnsigned := (flags & flagUnsigned) != 0
+
+		databaseTypeName := columnType.DatabaseTypeName()
+
+		dataType := ""
+		scanType := columnType.ScanType()
+
+		bad := func() {
+			panic(fmt.Errorf("Unknown column type: scantype=%#v databaseTypeName=%+q", scanType, databaseTypeName))
+		}
+
+		switch scanType {
+		// Float types
+		case scanTypeFloat32:
+			dataType = "float32"
+		case scanTypeFloat64:
+			dataType = "float64"
+		case scanTypeNullFloat:
+			switch databaseTypeName {
+			case "FLOAT":
+				dataType = "float32"
+			case "DOUBLE":
+				dataType = "float64"
+			default:
+				bad()
+			}
+
+		// Int types, includeing bool type
+		case scanTypeInt8:
+			if length == 1 {
+				// Special case for bool
+				dataType = "bool"
+			} else {
+				dataType = "int8"
+			}
+		case scanTypeInt16:
+			dataType = "int16"
+		case scanTypeInt32:
+			dataType = "int32"
+		case scanTypeInt64:
+			dataType = "int64"
+		case scanTypeUint8:
+			dataType = "uint8"
+		case scanTypeUint16:
+			dataType = "uint16"
+		case scanTypeUint32:
+			dataType = "uint32"
+		case scanTypeUint64:
+			dataType = "uint64"
+		case scanTypeNullInt:
+			switch databaseTypeName {
+			case "TINYINT":
+				if isUnsigned {
+					dataType = "uint8"
+				} else {
+					if length == 1 {
+						dataType = "bool"
+					} else {
+						dataType = "int8"
+					}
+				}
+			case "SMALLINT", "YEAR":
+				if isUnsigned {
+					dataType = "uint16"
+				} else {
+					dataType = "int16"
+				}
+			case "MEDIUMINT", "INT":
+				if isUnsigned {
+					dataType = "uint32"
+				} else {
+					dataType = "int32"
+				}
+			case "BIGINT":
+				if isUnsigned {
+					dataType = "uint64"
+				} else {
+					dataType = "int64"
+				}
+			default:
+				bad()
+			}
+
+		// Time types
+		case scanTypeNullTime:
+			dataType = "time"
+
+			// String types
+		case scanTypeRawBytes:
+			switch databaseTypeName {
+			case "BIT":
+				dataType = "bit"
+			case "SET":
+				dataType = "set"
+			case "JSON":
+				dataType = "json"
+			default:
+				dataType = "string"
+			}
+
+		default:
+			bad()
+		}
+
+		columns = append(columns, driver.Column{
+			ColumnName: columnType.Name(),
+			DataType:   dataType,
+			Nullable:   nullable,
+		})
+
+	}
+
+	return
+
+}
+
+func (drv mysqlDrv) ExtractTableNames(conn *sql.DB) (tableNames []string, err error) {
+	dbName, err := extractDBName(conn)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := conn.Query(`
+	SELECT 
+		TABLE_NAME
+	FROM
+		INFORMATION_SCHEMA.TABLES
+	WHERE
+		TABLE_SCHEMA=? AND TABLE_TYPE='BASE TABLE'
+	`, dbName)
 	if err != nil {
 		return nil, err
 	}
@@ -53,27 +248,11 @@ func (driver mysqlDrv) ExtractTableNames(conn *sql.DB) (tableNames []string, err
 	return tableNames, nil
 }
 
-func (driver mysqlDrv) ExtractColumns(conn *sql.DB, tableName string) (columnNames []string, columnTypes []*sql.ColumnType, err error) {
-	rows, err := conn.Query("SELECT * FROM `" + tableName + "`")
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-
-	columnNames, err = rows.Columns()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	columnTypes, err = rows.ColumnTypes()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return columnNames, columnTypes, nil
+func (drv mysqlDrv) ExtractColumns(conn *sql.DB, tableName string) (columns []driver.Column, err error) {
+	return drv.ExtractQuery(conn, "SELECT * FROM `"+tableName+"`")
 }
 
-func (driver mysqlDrv) ExtractAutoIncColumn(conn *sql.DB, tableName string) (columnName string, err error) {
+func (drv mysqlDrv) ExtractAutoIncColumn(conn *sql.DB, tableName string) (columnName string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return "", err
@@ -102,7 +281,7 @@ func (driver mysqlDrv) ExtractAutoIncColumn(conn *sql.DB, tableName string) (col
 	return columnName, nil
 }
 
-func (driver mysqlDrv) ExtractIndexNames(conn *sql.DB, tableName string) (indexNames []string, err error) {
+func (drv mysqlDrv) ExtractIndexNames(conn *sql.DB, tableName string) (indexNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
@@ -131,7 +310,7 @@ func (driver mysqlDrv) ExtractIndexNames(conn *sql.DB, tableName string) (indexN
 
 }
 
-func (driver mysqlDrv) ExtractIndex(conn *sql.DB, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
+func (drv mysqlDrv) ExtractIndex(conn *sql.DB, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, false, false, err
@@ -179,7 +358,7 @@ func (driver mysqlDrv) ExtractIndex(conn *sql.DB, tableName string, indexName st
 	return
 }
 
-func (driver mysqlDrv) ExtractFKNames(conn *sql.DB, tableName string) (fkNames []string, err error) {
+func (drv mysqlDrv) ExtractFKNames(conn *sql.DB, tableName string) (fkNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
@@ -207,7 +386,7 @@ func (driver mysqlDrv) ExtractFKNames(conn *sql.DB, tableName string) (fkNames [
 	return fkNames, nil
 }
 
-func (driver mysqlDrv) ExtractFK(conn *sql.DB, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
+func (drv mysqlDrv) ExtractFK(conn *sql.DB, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, "", nil, err
@@ -252,37 +431,11 @@ func (driver mysqlDrv) ExtractFK(conn *sql.DB, tableName string, fkName string) 
 
 }
 
-func (driver mysqlDrv) PrimitiveScanType(typ *sql.ColumnType) (string, error) {
-	switch typ.ScanType() {
-	case scanTypeFloat32:
-		return "float32", nil
-	case scanTypeFloat64, scanTypeNullFloat:
-		return "float64", nil
-	case scanTypeInt8:
-		return "int8", nil
-	case scanTypeInt16:
-		return "int16", nil
-	case scanTypeInt32:
-		return "int32", nil
-	case scanTypeInt64, scanTypeNullInt:
-		return "int64", nil
-	case scanTypeUint8:
-		return "uint8", nil
-	case scanTypeUint16:
-		return "uint16", nil
-	case scanTypeUint32:
-		return "uint32", nil
-	case scanTypeUint64:
-		return "uint64", nil
-	case scanTypeRawBytes:
-		return "[]byte", nil
-	case scanTypeNullTime:
-		return "time.Time", nil
-	}
-	return "", fmt.Errorf("Not support column type %s", typ.ScanType().String())
+func (drv mysqlDrv) DataTypes() []string {
+	return DataTypes
 }
 
-func (driver mysqlDrv) Quote(identifier string) string {
+func (drv mysqlDrv) Quote(identifier string) string {
 	return fmt.Sprintf("`%s`", identifier)
 }
 
@@ -291,7 +444,13 @@ func extractDBName(conn *sql.DB) (string, error) {
 	// NOTE: https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_database
 	// SELECT DATABASE() returns current database or NULL if there is no current default database.
 	err := conn.QueryRow("SELECT DATABASE()").Scan(&dbName)
-	return dbName.String, err
+	if err != nil {
+		return "", err
+	}
+	if dbName.String == "" {
+		return "", fmt.Errorf("No db selected")
+	}
+	return dbName.String, nil
 }
 
 func init() {
