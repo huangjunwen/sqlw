@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"reflect"
@@ -67,8 +68,8 @@ const (
 	flagUnsigned = 1 << 5
 )
 
-func (drv mysqlDrv) ExtractQuery(conn *sql.DB, query string) (columns []driver.Column, err error) {
-	rows, err := conn.Query(query)
+func (drv mysqlDrv) ExtractQuery(conn *sql.Conn, query string) (columns []driver.Column, err error) {
+	rows, err := conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -219,13 +220,13 @@ func (drv mysqlDrv) ExtractQuery(conn *sql.DB, query string) (columns []driver.C
 
 }
 
-func (drv mysqlDrv) ExtractTableNames(conn *sql.DB) (tableNames []string, err error) {
+func (drv mysqlDrv) ExtractTableNames(conn *sql.Conn) (tableNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := conn.Query(`
+	rows, err := conn.QueryContext(context.Background(), `
 	SELECT 
 		TABLE_NAME
 	FROM
@@ -248,17 +249,17 @@ func (drv mysqlDrv) ExtractTableNames(conn *sql.DB) (tableNames []string, err er
 	return tableNames, nil
 }
 
-func (drv mysqlDrv) ExtractColumns(conn *sql.DB, tableName string) (columns []driver.Column, err error) {
+func (drv mysqlDrv) ExtractColumns(conn *sql.Conn, tableName string) (columns []driver.Column, err error) {
 	return drv.ExtractQuery(conn, "SELECT * FROM `"+tableName+"`")
 }
 
-func (drv mysqlDrv) ExtractAutoIncColumn(conn *sql.DB, tableName string) (columnName string, err error) {
+func (drv mysqlDrv) ExtractAutoIncColumn(conn *sql.Conn, tableName string) (columnName string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return "", err
 	}
 
-	rows, err := conn.Query(`
+	rows, err := conn.QueryContext(context.Background(), `
 	SELECT
 		COLUMN_NAME
 	FROM
@@ -281,13 +282,13 @@ func (drv mysqlDrv) ExtractAutoIncColumn(conn *sql.DB, tableName string) (column
 	return columnName, nil
 }
 
-func (drv mysqlDrv) ExtractIndexNames(conn *sql.DB, tableName string) (indexNames []string, err error) {
+func (drv mysqlDrv) ExtractIndexNames(conn *sql.Conn, tableName string) (indexNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := conn.Query(`
+	rows, err := conn.QueryContext(context.Background(), `
 	SELECT 
 		DISTINCT INDEX_NAME 
 	FROM 
@@ -310,13 +311,13 @@ func (drv mysqlDrv) ExtractIndexNames(conn *sql.DB, tableName string) (indexName
 
 }
 
-func (drv mysqlDrv) ExtractIndex(conn *sql.DB, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
+func (drv mysqlDrv) ExtractIndex(conn *sql.Conn, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, false, false, err
 	}
 
-	rows, err := conn.Query(`
+	rows, err := conn.QueryContext(context.Background(), `
 	SELECT 
 		NON_UNIQUE, COLUMN_NAME, SEQ_IN_INDEX 
 	FROM
@@ -358,13 +359,13 @@ func (drv mysqlDrv) ExtractIndex(conn *sql.DB, tableName string, indexName strin
 	return
 }
 
-func (drv mysqlDrv) ExtractFKNames(conn *sql.DB, tableName string) (fkNames []string, err error) {
+func (drv mysqlDrv) ExtractFKNames(conn *sql.Conn, tableName string) (fkNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := conn.Query(`
+	rows, err := conn.QueryContext(context.Background(), `
 	SELECT
 		CONSTRAINT_NAME
 	FROM
@@ -386,13 +387,13 @@ func (drv mysqlDrv) ExtractFKNames(conn *sql.DB, tableName string) (fkNames []st
 	return fkNames, nil
 }
 
-func (drv mysqlDrv) ExtractFK(conn *sql.DB, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
+func (drv mysqlDrv) ExtractFK(conn *sql.Conn, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
 	dbName, err := extractDBName(conn)
 	if err != nil {
 		return nil, "", nil, err
 	}
 
-	rows, err := conn.Query(`
+	rows, err := conn.QueryContext(context.Background(), `
 		SELECT
 			COLUMN_NAME, ORDINAL_POSITION, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
 		FROM
@@ -439,11 +440,11 @@ func (drv mysqlDrv) Quote(identifier string) string {
 	return fmt.Sprintf("`%s`", identifier)
 }
 
-func extractDBName(conn *sql.DB) (string, error) {
+func extractDBName(conn *sql.Conn) (string, error) {
 	var dbName sql.NullString
 	// NOTE: https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_database
 	// SELECT DATABASE() returns current database or NULL if there is no current default database.
-	err := conn.QueryRow("SELECT DATABASE()").Scan(&dbName)
+	err := conn.QueryRowContext(context.Background(), "SELECT DATABASE()").Scan(&dbName)
 	if err != nil {
 		return "", err
 	}

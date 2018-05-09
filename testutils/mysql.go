@@ -24,15 +24,15 @@ type mysqlConnCtxKeyType struct{}
 var mysqlConnCtxKey mysqlConnCtxKeyType
 
 // MysqlConn returns the mysql connection stored in context if exists.
-func MysqlConn(ctx context.Context) *sql.DB {
+func MysqlConn(ctx context.Context) *sql.Conn {
 	v := ctx.Value(mysqlConnCtxKey)
 	if v == nil {
 		return nil
 	}
-	return v.(*sql.DB)
+	return v.(*sql.Conn)
 }
 
-// WithMysqlConn is a middelware to fn and add a usable mysql connection object to the context.
+// WithMysqlConn is a middelware to fn and add a usable mysql connection to the context.
 func WithMysqlConn(fn func(context.Context) error) func(context.Context) error {
 
 	return func(ctx context.Context) (err error) {
@@ -40,7 +40,8 @@ func WithMysqlConn(fn func(context.Context) error) func(context.Context) error {
 		pool := GetPool()
 		var (
 			resource *dockertest.Resource
-			conn     *sql.DB
+			dbpool   *sql.DB
+			conn     *sql.Conn
 		)
 
 		// Determin mysql server version.
@@ -71,17 +72,23 @@ func WithMysqlConn(fn func(context.Context) error) func(context.Context) error {
 		mysql.SetLogger(noopLogger{})
 		if err = pool.Retry(func() error {
 			var e error
-			conn, e = sql.Open("mysql", fmt.Sprintf("root:123456@(localhost:%s)/mysql", resource.GetPort("3306/tcp")))
+			dbpool, e = sql.Open("mysql", fmt.Sprintf("root:123456@(localhost:%s)/mysql", resource.GetPort("3306/tcp")))
 			if e != nil {
 				return e
 			}
-			if e = conn.Ping(); e != nil {
-				conn.Close()
+			if e = dbpool.Ping(); e != nil {
+				dbpool.Close()
 				return e
 			}
 			return nil
 		}); err != nil {
 			return
+		}
+		defer dbpool.Close()
+
+		conn, err = dbpool.Conn(context.Background())
+		if err != nil {
+			return err
 		}
 		defer conn.Close()
 

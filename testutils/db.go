@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 )
@@ -19,8 +20,8 @@ func CatchDBExecPanic() {
 }
 
 // DBExec execute the query and panic if something error happened. Should use CatchDBExecPanic to catch the panic.
-func DBExec(t *testing.T, conn *sql.DB, query string, args ...interface{}) {
-	_, err := conn.Exec(query, args...)
+func DBExec(t *testing.T, conn *sql.Conn, query string, args ...interface{}) {
+	_, err := conn.ExecContext(context.Background(), query, args...)
 	if err != nil {
 		t.Fatal(err)
 		panic(dbExecExit)
