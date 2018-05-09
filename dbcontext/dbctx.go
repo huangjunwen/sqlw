@@ -1,73 +1,127 @@
 package dbcontext
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"github.com/huangjunwen/sqlw/driver"
+	"time"
 )
 
-// DBCtx contains database related information.
+var (
+	// ConnectTimeout is the database connection timeout.
+	ConnectTimeout = time.Second * 5
+)
+
+// DBCtx represents the database context the code generator is running with.
 type DBCtx struct {
-	driverName     string
-	dataSourceName string
-	conn           *sql.DB
-	drv            driver.Drv
-	db             *DBInfo
+	name     string
+	dsn      string
+	drv      Drv
+	connPool *sql.DB
+	conn     *sql.Conn
 }
 
-// NewDBCtx creates DBCtx: connects to a database and extract information from it.
-func NewDBCtx(driverName, dataSourceName string) (*DBCtx, error) {
-	conn, err := sql.Open(driverName, dataSourceName)
+// NewDBCtx creates a new DBCtx.
+func NewDBCtx(name, dsn string) (*DBCtx, error) {
+	drv := GetDrv(name)
+	if drv == nil {
+		return nil, fmt.Errorf("Unsupported driver name %+q", name)
+	}
+
+	connPool, err := sql.Open(name, dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	drv := driver.GetDrv(driverName)
-	if drv == nil {
-		return nil, fmt.Errorf("Unsupported driver %+q", driverName)
+	ctx, _ := context.WithTimeout(context.Background(), ConnectTimeout)
+	if err != nil {
+		return nil, err
 	}
-
-	db, err := newDBInfo(conn, drv)
+	conn, err := connPool.Conn(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &DBCtx{
-		driverName:     driverName,
-		dataSourceName: dataSourceName,
-		drv:            drv,
-		conn:           conn,
-		db:             db,
+		name:     name,
+		dsn:      dsn,
+		drv:      drv,
+		connPool: connPool,
+		conn:     conn,
 	}, nil
 
 }
 
-// DriverName returns database type (e.g. "mysql")
-func (ctx *DBCtx) DriverName() string {
-	return ctx.driverName
+// Name returns the driver name.
+func (dbctx *DBCtx) Name() string {
+	return dbctx.name
 }
 
-// DataSourceName returns the DSN of the database connected to.
-func (ctx *DBCtx) DataSourceName() string {
-	return ctx.dataSourceName
+// DSN returns the data source name.
+func (dbctx *DBCtx) DSN() string {
+	return dbctx.dsn
 }
 
-// Conn returns the database connection.
-func (ctx *DBCtx) Conn() *sql.DB {
-	return ctx.conn
+// Drv returns Drv object.
+func (dbctx *DBCtx) Drv() Drv {
+	return dbctx.drv
 }
 
-// Drv returns sqlw database driver.
-func (ctx *DBCtx) Drv() driver.Drv {
-	return ctx.drv
+// ConnPool returns the connection pool object.
+func (dbctx *DBCtx) ConnPool() *sql.DB {
+	return dbctx.connPool
 }
 
-// DB returns the extracted database information.
-func (ctx *DBCtx) DB() *DBInfo {
-	return ctx.db
+// Conn returns a single connection object.
+func (dbctx *DBCtx) Conn() *sql.Conn {
+	return dbctx.conn
 }
 
-// Close and release resource.
-func (ctx *DBCtx) Close() {
-	ctx.conn.Close()
+// Close release resource.
+func (dbctx *DBCtx) Close() {
+	dbctx.conn.Close()
+	dbctx.connPool.Close()
+}
+
+// ExtractQueryResultColumns returns result columns of a query.
+func (dbctx *DBCtx) ExtractQueryResultColumns(query string) (columns []Column, err error) {
+	return dbctx.drv.ExtractQueryResultColumns(dbctx.conn, query)
+}
+
+// ExtractTableNames returns all table names in current database.
+func (dbctx *DBCtx) ExtractTableNames() (tableNames []string, err error) {
+	return dbctx.drv.ExtractTableNames(dbctx.conn)
+}
+
+// ExtractColumns returns columns of a given table.
+func (dbctx *DBCtx) ExtractColumns(tableName string) (columns []Column, err error) {
+	return dbctx.drv.ExtractColumns(dbctx.conn, tableName)
+}
+
+// ExtractIndexNames returns all index name for a given table.
+func (dbctx *DBCtx) ExtractIndexNames(tableName string) (indexNames []string, err error) {
+	return dbctx.drv.ExtractIndexNames(dbctx.conn, tableName)
+}
+
+// ExtractIndex returns information of a given index.
+func (dbctx *DBCtx) ExtractIndex(tableName, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
+	return dbctx.drv.ExtractIndex(dbctx.conn, tableName, indexName)
+}
+
+// ExtractFKNames returns all foreign key constraint names for a given table.
+func (dbctx *DBCtx) ExtractFKNames(tableName string) (fkNames []string, err error) {
+	return dbctx.drv.ExtractFKNames(dbctx.conn, tableName)
+}
+
+// ExtractFK returns information of a given foreign key constraint.
+func (dbctx *DBCtx) ExtractFK(tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
+	return dbctx.drv.ExtractFK(dbctx.conn, tableName, fkName)
+}
+
+// ExtractAutoIncColumn returns the 'auto increament' column's name for a given table or "" if not found or not supported.
+func (dbctx *DBCtx) ExtractAutoIncColumn(tableName string) (ColumnName string, err error) {
+	if drv, ok := dbctx.drv.(DrvWithAutoInc); ok {
+		return drv.ExtractAutoIncColumn(dbctx.conn, tableName)
+	}
+	return "", nil
 }

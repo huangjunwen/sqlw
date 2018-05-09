@@ -8,14 +8,14 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/huangjunwen/sqlw/driver"
+	"github.com/huangjunwen/sqlw/dbcontext"
 )
 
 type mysqlDrv struct{}
 
 var (
-	_ driver.Drv            = mysqlDrv{}
-	_ driver.DrvWithAutoInc = mysqlDrv{}
+	_ dbcontext.Drv            = mysqlDrv{}
+	_ dbcontext.DrvWithAutoInc = mysqlDrv{}
 )
 
 var (
@@ -67,7 +67,7 @@ const (
 	flagUnsigned = 1 << 5
 )
 
-func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []driver.Column, err error) {
+func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []dbcontext.Column, err error) {
 	rows, err := conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
@@ -206,7 +206,7 @@ func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (col
 			bad()
 		}
 
-		columns = append(columns, driver.Column{
+		columns = append(columns, dbcontext.Column{
 			ColumnName: columnType.Name(),
 			DataType:   dataType,
 			Nullable:   nullable,
@@ -247,7 +247,7 @@ func (drv mysqlDrv) ExtractTableNames(conn *sql.Conn) (tableNames []string, err 
 	return tableNames, nil
 }
 
-func (drv mysqlDrv) ExtractColumns(conn *sql.Conn, tableName string) (columns []driver.Column, err error) {
+func (drv mysqlDrv) ExtractColumns(conn *sql.Conn, tableName string) (columns []dbcontext.Column, err error) {
 	return drv.ExtractQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
 }
 
@@ -453,5 +453,5 @@ func extractDBName(conn *sql.Conn) (string, error) {
 }
 
 func init() {
-	driver.RegistDrv("mysql", mysqlDrv{})
+	dbcontext.RegistDrv("mysql", mysqlDrv{})
 }

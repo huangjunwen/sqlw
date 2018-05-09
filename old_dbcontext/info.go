@@ -28,10 +28,9 @@ type TableInfo struct {
 
 // ColumnInfo contains information of a column.
 type ColumnInfo struct {
-	table      *TableInfo
-	columnName string
-	columnType *sql.ColumnType
-	pos        int // position in table
+	table  *TableInfo
+	column driver.Column
+	pos    int // position in table
 }
 
 // IndexInfo contains information of an index.
@@ -52,7 +51,7 @@ type FKInfo struct {
 	refColumnNames []string
 }
 
-func newDBInfo(conn *sql.DB, drv driver.Drv) (*DBInfo, error) {
+func newDBInfo(conn *sql.Conn, drv driver.Drv) (*DBInfo, error) {
 
 	_, supportAutoInc := drv.(driver.DrvWithAutoInc)
 
@@ -76,17 +75,16 @@ func newDBInfo(conn *sql.DB, drv driver.Drv) (*DBInfo, error) {
 		}
 
 		// Columns info
-		columnNames, columnTypes, err := drv.ExtractColumns(conn, tableName)
+		cols, err := drv.ExtractColumns(conn, tableName)
 		if err != nil {
 			return nil, err
 		}
 
-		for i, columnName := range columnNames {
+		for i, col := range cols {
 			column := &ColumnInfo{
-				table:      table,
-				columnName: columnName,
-				columnType: columnTypes[i],
-				pos:        i,
+				table:  table,
+				column: col,
+				pos:    i,
 			}
 			table.columns = append(table.columns, column)
 			table.columnNames[columnName] = len(table.columns) - 1
