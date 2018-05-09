@@ -84,7 +84,7 @@ func (dbctx *DBCtx) Close() {
 }
 
 // ExtractQueryResultColumns returns result columns of a query.
-func (dbctx *DBCtx) ExtractQueryResultColumns(query string) (columns []Column, err error) {
+func (dbctx *DBCtx) ExtractQueryResultColumns(query string) (columns []Col, err error) {
 	return dbctx.drv.ExtractQueryResultColumns(dbctx.conn, query)
 }
 
@@ -94,7 +94,7 @@ func (dbctx *DBCtx) ExtractTableNames() (tableNames []string, err error) {
 }
 
 // ExtractColumns returns columns of a given table.
-func (dbctx *DBCtx) ExtractColumns(tableName string) (columns []Column, err error) {
+func (dbctx *DBCtx) ExtractColumns(tableName string) (columns []Col, err error) {
 	return dbctx.drv.ExtractColumns(dbctx.conn, tableName)
 }
 

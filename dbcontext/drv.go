@@ -9,13 +9,13 @@ import (
 // NOTE: Use sql.Conn instead of sql.DB to make sure only one database connection is using.
 type Drv interface {
 	// ExtractQueryResultColumns returns result columns of a query.
-	ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []Column, err error)
+	ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []Col, err error)
 
 	// ExtractTableNames returns all table names in current database.
 	ExtractTableNames(conn *sql.Conn) (tableNames []string, err error)
 
 	// ExtractColumns returns columns of a given table.
-	ExtractColumns(conn *sql.Conn, tableName string) (columns []Column, err error)
+	ExtractColumns(conn *sql.Conn, tableName string) (columns []Col, err error)
 
 	// ExtractIndexNames returns all index name for a given table.
 	ExtractIndexNames(conn *sql.Conn, tableName string) (indexNames []string, err error)

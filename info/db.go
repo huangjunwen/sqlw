@@ -1,9 +1,9 @@
-package dbcontext
+package info
 
 import (
-	"database/sql"
 	"fmt"
-	"github.com/huangjunwen/sqlw/driver"
+
+	"github.com/huangjunwen/sqlw/dbcontext"
 )
 
 // DBInfo contains information of a database.
@@ -28,9 +28,9 @@ type TableInfo struct {
 
 // ColumnInfo contains information of a column.
 type ColumnInfo struct {
-	table  *TableInfo
-	column driver.Column
-	pos    int // position in table
+	table *TableInfo
+	col   dbcontext.Col
+	pos   int // position in table
 }
 
 // IndexInfo contains information of an index.
@@ -51,15 +51,14 @@ type FKInfo struct {
 	refColumnNames []string
 }
 
-func newDBInfo(conn *sql.Conn, drv driver.Drv) (*DBInfo, error) {
-
-	_, supportAutoInc := drv.(driver.DrvWithAutoInc)
+// NewDBInfo extracts information from database.
+func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 
 	db := &DBInfo{
 		tableNames: make(map[string]int),
 	}
 
-	tableNames, err := drv.ExtractTableNames(conn)
+	tableNames, err := dbctx.ExtractTableNames()
 	if err != nil {
 		return nil, err
 	}
@@ -75,39 +74,38 @@ func newDBInfo(conn *sql.Conn, drv driver.Drv) (*DBInfo, error) {
 		}
 
 		// Columns info
-		cols, err := drv.ExtractColumns(conn, tableName)
+		cols, err := dbctx.ExtractColumns(tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for i, col := range cols {
 			column := &ColumnInfo{
-				table:  table,
-				column: col,
-				pos:    i,
+				table: table,
+				col:   col,
+				pos:   i,
 			}
 			table.columns = append(table.columns, column)
-			table.columnNames[columnName] = len(table.columns) - 1
+			table.columnNames[col.Name()] = len(table.columns) - 1
 		}
 
-		if supportAutoInc {
-			autoIncColumnName, err := drv.(driver.DrvWithAutoInc).ExtractAutoIncColumn(conn, tableName)
-			if err != nil {
-				return nil, err
-			}
-			if autoIncColumnName != "" {
-				table.autoIncColumn = table.columns[table.columnNames[autoIncColumnName]]
-			}
+		// Auto increment column
+		autoIncColumnName, err := dbctx.ExtractAutoIncColumn(tableName)
+		if err != nil {
+			return nil, err
+		}
+		if autoIncColumnName != "" {
+			table.autoIncColumn = table.columns[table.columnNames[autoIncColumnName]]
 		}
 
 		// Index info
-		indexNames, err := drv.ExtractIndexNames(conn, tableName)
+		indexNames, err := dbctx.ExtractIndexNames(tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, indexName := range indexNames {
-			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, tableName, indexName)
+			columnNames, isPrimary, isUnique, err := dbctx.ExtractIndex(tableName, indexName)
 			if err != nil {
 				return nil, err
 			}
@@ -133,13 +131,13 @@ func newDBInfo(conn *sql.Conn, drv driver.Drv) (*DBInfo, error) {
 		}
 
 		// FK info
-		fkNames, err := drv.ExtractFKNames(conn, tableName)
+		fkNames, err := dbctx.ExtractFKNames(tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, fkName := range fkNames {
-			columnNames, refTableName, refColumnNames, err := drv.ExtractFK(conn, tableName, fkName)
+			columnNames, refTableName, refColumnNames, err := dbctx.ExtractFK(tableName, fkName)
 			if err != nil {
 				return nil, err
 			}
@@ -370,14 +368,6 @@ func (info *ColumnInfo) String() string {
 	return info.ColumnName()
 }
 
-// ColumnName returns the column name. It returns "" if info is nil.
-func (info *ColumnInfo) ColumnName() string {
-	if info == nil {
-		return ""
-	}
-	return info.columnName
-}
-
 // Table returns the tabe. It returns nil if info is nil.
 func (info *ColumnInfo) Table() *TableInfo {
 	if info == nil {
@@ -386,20 +376,48 @@ func (info *ColumnInfo) Table() *TableInfo {
 	return info.table
 }
 
-// ColumnType returns the column type. It returns nil if info is nil.
-func (info *ColumnInfo) ColumnType() *sql.ColumnType {
-	if info == nil {
-		return nil
-	}
-	return info.columnType
-}
-
 // Pos returns the position of the column in table. It returns -1 if info is nil.
 func (info *ColumnInfo) Pos() int {
 	if info == nil {
 		return -1
 	}
 	return info.pos
+}
+
+// ColumnName returns the column name. It returns "" if info is nil.
+func (info *ColumnInfo) ColumnName() string {
+	if info == nil {
+		return ""
+	}
+	return info.col.Name()
+}
+
+// DataType returns the 'translated' type name of the column. It returns "" if info is nil.
+func (info *ColumnInfo) DataType() string {
+	if info == nil {
+		return ""
+	}
+	return info.col.DataType
+}
+
+// Nullable returns the nullable of the column. It returns true if info is nil or the driver does not support nullable property.
+func (info *ColumnInfo) Nullable() bool {
+	if info == nil {
+		return true
+	}
+	nullable, ok := info.col.Nullable()
+	if !ok {
+		return true
+	}
+	return nullable
+}
+
+// Col returns the underly dbcontext.Col object. It returns nil if info is nil.
+func (info *ColumnInfo) Col() *dbcontext.Col {
+	if info == nil {
+		return nil
+	}
+	return &info.col
 }
 
 // Valid returns true if info != nil.

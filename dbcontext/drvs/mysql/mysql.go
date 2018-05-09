@@ -67,7 +67,7 @@ const (
 	flagUnsigned = 1 << 5
 )
 
-func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []dbcontext.Column, err error) {
+func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []dbcontext.Col, err error) {
 	rows, err := conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
@@ -80,11 +80,6 @@ func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (col
 	}
 
 	for i, columnType := range columnTypes {
-
-		nullable, ok := columnType.Nullable()
-		if !ok {
-			panic(fmt.Errorf("Nullable() returns not ok"))
-		}
 
 		// XXX: From current driver's public API some information is lost:
 		// - Column type's length is not support yet (see https://github.com/go-sql-driver/mysql/pull/667)
@@ -206,10 +201,9 @@ func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (col
 			bad()
 		}
 
-		columns = append(columns, dbcontext.Column{
-			ColumnName: columnType.Name(),
+		columns = append(columns, dbcontext.Col{
+			ColumnType: columnType,
 			DataType:   dataType,
-			Nullable:   nullable,
 		})
 
 	}
@@ -247,7 +241,7 @@ func (drv mysqlDrv) ExtractTableNames(conn *sql.Conn) (tableNames []string, err 
 	return tableNames, nil
 }
 
-func (drv mysqlDrv) ExtractColumns(conn *sql.Conn, tableName string) (columns []dbcontext.Column, err error) {
+func (drv mysqlDrv) ExtractColumns(conn *sql.Conn, tableName string) (columns []dbcontext.Col, err error) {
 	return drv.ExtractQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
 }
 

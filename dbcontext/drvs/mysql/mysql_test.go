@@ -128,11 +128,9 @@ func TestExtractQueryResultColumns(t *testing.T) {
 	columns, err := drv.ExtractQueryResultColumns(conn, "SELECT * FROM `types`")
 	assert.NoError(err)
 	for _, column := range columns {
-		parts := strings.Split(column.ColumnName, "_")
+		parts := strings.Split(column.Name(), "_")
 		assert.Len(parts, 3)
-		nullable := parts[1] == "n"
-		assert.Equal(nullable, column.Nullable, "Nullable error for column %+q", column.ColumnName)
-		assert.Equal(parts[2], column.DataType, "DataType error for column %+q", column.ColumnName)
+		assert.Equal(parts[2], column.DataType, "DataType error for column %+q", column.Name())
 	}
 
 }
@@ -197,8 +195,8 @@ func TestExtractTableInfo(t *testing.T) {
 		columns, err := drv.ExtractColumns(conn, "where")
 		assert.NoError(err)
 		assert.Len(columns, 2)
-		assert.Equal("and", columns[0].ColumnName)
-		assert.Equal("or", columns[1].ColumnName)
+		assert.Equal("and", columns[0].Name())
+		assert.Equal("or", columns[1].Name())
 	}
 
 	// -- ExtractAutoIncColumn ---
