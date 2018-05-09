@@ -73,6 +73,7 @@ func (drv mysqlDrv) ExtractQuery(conn *sql.Conn, query string) (columns []driver
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	columnTypes, err := rows.ColumnTypes()
 	if err != nil {

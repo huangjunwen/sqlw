@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	conn *sql.DB
+	conn *sql.Conn
 	drv  mysqlDrv
 )
 
@@ -72,7 +72,7 @@ func TestExtractTableInfo(t *testing.T) {
 
 	exec("CREATE DATABASE testing")
 	defer func() {
-		conn.Exec("DROP DATABASE testing")
+		conn.ExecContext(context.Background(), "DROP DATABASE testing")
 	}()
 	exec("USE testing")
 
