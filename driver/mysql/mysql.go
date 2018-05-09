@@ -38,7 +38,6 @@ var (
 		"time",
 		// String types
 		"bit",
-		"set",
 		"json",
 		"string",
 	}
@@ -68,7 +67,7 @@ const (
 	flagUnsigned = 1 << 5
 )
 
-func (drv mysqlDrv) ExtractQuery(conn *sql.Conn, query string) (columns []driver.Column, err error) {
+func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []driver.Column, err error) {
 	rows, err := conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
@@ -108,9 +107,9 @@ func (drv mysqlDrv) ExtractQuery(conn *sql.Conn, query string) (columns []driver
 		isUnsigned := (flags & flagUnsigned) != 0
 
 		databaseTypeName := columnType.DatabaseTypeName()
+		scanType := columnType.ScanType()
 
 		dataType := ""
-		scanType := columnType.ScanType()
 
 		bad := func() {
 			panic(fmt.Errorf("Unknown column type: scantype=%#v databaseTypeName=%+q", scanType, databaseTypeName))
@@ -197,8 +196,6 @@ func (drv mysqlDrv) ExtractQuery(conn *sql.Conn, query string) (columns []driver
 			switch databaseTypeName {
 			case "BIT":
 				dataType = "bit"
-			case "SET":
-				dataType = "set"
 			case "JSON":
 				dataType = "json"
 			default:
@@ -251,7 +248,7 @@ func (drv mysqlDrv) ExtractTableNames(conn *sql.Conn) (tableNames []string, err 
 }
 
 func (drv mysqlDrv) ExtractColumns(conn *sql.Conn, tableName string) (columns []driver.Column, err error) {
-	return drv.ExtractQuery(conn, "SELECT * FROM `"+tableName+"`")
+	return drv.ExtractQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
 }
 
 func (drv mysqlDrv) ExtractAutoIncColumn(conn *sql.Conn, tableName string) (columnName string, err error) {

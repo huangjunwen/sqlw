@@ -13,7 +13,7 @@ type Column struct {
 	// - uint24
 	// - json
 	// - time
-	// It is used in scan type mapping.
+	// It is used in scan type mapping only, thus can be any valid identifier, no need to be a real type name.
 	DataType string
 
 	// Nullable is true if the column can have NULL value.
@@ -21,17 +21,19 @@ type Column struct {
 }
 
 // Drv is the common interface to talk to different database systems.
+//
+// NOTE: Use sql.Conn instead of sql.DB to make sure only one database connection is using.
 type Drv interface {
-	// ExtractQuery returns result columns of a query.
-	ExtractQuery(conn *sql.Conn, query string) (columns []Column, err error)
+	// ExtractQueryResultColumns returns result columns of a query.
+	ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []Column, err error)
 
-	// ExtractTableNames extracts all table names in current database (schema).
+	// ExtractTableNames extracts all table names in current database.
 	ExtractTableNames(conn *sql.Conn) (tableNames []string, err error)
 
 	// ExtractColumns extracts columns of a given table.
 	ExtractColumns(conn *sql.Conn, tableName string) (columns []Column, err error)
 
-	// ExtractIndexNames extracts all index (key) name for a given table.
+	// ExtractIndexNames extracts all index name for a given table.
 	ExtractIndexNames(conn *sql.Conn, tableName string) (indexNames []string, err error)
 
 	// ExtractIndex extracts information of a given index.
@@ -43,7 +45,7 @@ type Drv interface {
 	// ExtractFK extracts information of a given foreign key constraint.
 	ExtractFK(conn *sql.Conn, tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error)
 
-	// DataTypes list full list of driver-specific type identifiers.
+	// DataTypes returns full list of driver-specific type identifiers used in Column.DataType.
 	DataTypes() []string
 
 	// Quote returns the quoted identifier.
@@ -54,7 +56,7 @@ type Drv interface {
 type DrvWithAutoInc interface {
 	Drv
 
-	// ExtractAutoIncColumn() extract the 'auto increament' column's name for a given table or "" if not found.
+	// ExtractAutoIncColumn extract the 'auto increament' column's name for a given table or "" if not found.
 	ExtractAutoIncColumn(conn *sql.Conn, tableName string) (columnName string, err error)
 }
 
