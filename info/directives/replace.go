@@ -1,13 +1,11 @@
 package directive
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/beevik/etree"
-
 	"github.com/huangjunwen/sqlw/dbcontext"
-	"github.com/huangjunwen/sqlw/statement"
+	"github.com/huangjunwen/sqlw/info"
 )
 
 type replaceDirective struct {
@@ -15,7 +13,7 @@ type replaceDirective struct {
 	with   string
 }
 
-func (d *replaceDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *replaceDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 	with := elem.SelectAttrValue("with", "")
 	if with == "" {
@@ -26,20 +24,20 @@ func (d *replaceDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.St
 	return nil
 }
 
-func (d *replaceDirective) Generate() (string, error) {
+func (d *replaceDirective) Fragment() (string, error) {
 	return d.with, nil
 }
 
-func (d *replaceDirective) GenerateQuery() (string, error) {
+func (d *replaceDirective) QueryFragment() (string, error) {
 	return d.origin, nil
 }
 
-func (d *replaceDirective) ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
+func (d *replaceDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) error {
 	return nil
 }
 
 func init() {
-	statement.RegistDirectiveFactory(func() statement.Directive {
+	info.RegistDirectiveFactory(func() info.Directive {
 		return &replaceDirective{}
 	}, "replace")
 }

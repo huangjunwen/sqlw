@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/go-sql-driver/mysql"
-
 	"github.com/huangjunwen/sqlw/dbcontext"
 )
 

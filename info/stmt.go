@@ -1,12 +1,10 @@
-package statement
+package info
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 
 	"github.com/beevik/etree"
-
 	"github.com/huangjunwen/sqlw/dbcontext"
 )
 
@@ -14,12 +12,11 @@ import (
 type StmtInfo struct {
 	stmtType string // 'SELECT'/'UPDATE'/'INSERT'/'DELETE'
 	stmtName string
-	stmtText string
+	text     string
 	locals   map[interface{}]interface{}
 
 	// for SELECT stmt only
-	resultColumnNames []string
-	resultColumnTypes []*sql.ColumnType
+	resultCols []dbcontext.Col
 }
 
 // NewStmtInfo creates a new StmtInfo from an xml element, example statement xml element:
@@ -30,7 +27,7 @@ type StmtInfo struct {
 //   </select>
 //
 // A statement xml element contains SQL statement fragments and special directives.
-func NewStmtInfo(dbctx *dbcontext.DBCtx, elem *etree.Element) (*StmtInfo, error) {
+func NewStmtInfo(db *DBInfo, elem *etree.Element) (*StmtInfo, error) {
 
 	info := &StmtInfo{
 		locals: map[interface{}]interface{}{},
@@ -51,7 +48,7 @@ func NewStmtInfo(dbctx *dbcontext.DBCtx, elem *etree.Element) (*StmtInfo, error)
 	}
 
 	// Process it.
-	if err := info.processElem(dbctx, elem); err != nil {
+	if err := info.processElem(db, elem); err != nil {
 		return nil, err
 	}
 
@@ -59,8 +56,9 @@ func NewStmtInfo(dbctx *dbcontext.DBCtx, elem *etree.Element) (*StmtInfo, error)
 
 }
 
-func (info *StmtInfo) processElem(dbctx *dbcontext.DBCtx, elem *etree.Element) error {
+func (info *StmtInfo) processElem(db *DBInfo, elem *etree.Element) error {
 
+	dbctx := db.DBCtx()
 	// Convert elem to a list of StmtDirective
 	directives := []Directive{}
 
@@ -80,7 +78,7 @@ func (info *StmtInfo) processElem(dbctx *dbcontext.DBCtx, elem *etree.Element) e
 			directive = factory()
 		}
 
-		if err := directive.Initialize(dbctx, info, t); err != nil {
+		if err := directive.Initialize(db, info, t); err != nil {
 			return err
 		}
 
@@ -90,12 +88,12 @@ func (info *StmtInfo) processElem(dbctx *dbcontext.DBCtx, elem *etree.Element) e
 
 	if info.StmtType() == "SELECT" {
 
-		// GenerateQuery()
+		// QueryFragment
 		fragments := []string{}
 
 		for _, directive := range directives {
 
-			fragment, err := directive.GenerateQuery()
+			fragment, err := directive.QueryFragment()
 			if err != nil {
 				return err
 			}
@@ -103,43 +101,32 @@ func (info *StmtInfo) processElem(dbctx *dbcontext.DBCtx, elem *etree.Element) e
 
 		}
 
-		stmtTextQuery := strings.TrimSpace(strings.Join(fragments, ""))
+		query := strings.TrimSpace(strings.Join(fragments, ""))
 
 		// Query
-		rows, err := dbctx.Conn().Query(stmtTextQuery)
-		if err != nil {
-			return err
-		}
-
-		resultColumnNames, err := rows.Columns()
-		if err != nil {
-			return err
-		}
-
-		resultColumnTypes, err := rows.ColumnTypes()
+		cols, err := dbctx.ExtractQueryResultColumns(query)
 		if err != nil {
 			return err
 		}
 
 		// Process query result
 		for _, directive := range directives {
-			if err := directive.ProcessQueryResult(&resultColumnNames, &resultColumnTypes); err != nil {
+			if err := directive.ProcessQueryResultColumns(&cols); err != nil {
 				return err
 			}
 		}
 
 		// Save
-		info.resultColumnNames = resultColumnNames
-		info.resultColumnTypes = resultColumnTypes
+		info.resultCols = cols
 
 	}
 
-	// Generate()
+	// Fragment()
 	fragments := []string{}
 
 	for _, directive := range directives {
 
-		fragment, err := directive.Generate()
+		fragment, err := directive.Fragment()
 		if err != nil {
 			return err
 		}
@@ -147,7 +134,7 @@ func (info *StmtInfo) processElem(dbctx *dbcontext.DBCtx, elem *etree.Element) e
 
 	}
 
-	info.stmtText = strings.TrimSpace(strings.Join(fragments, ""))
+	info.text = strings.TrimSpace(strings.Join(fragments, ""))
 
 	return nil
 }
@@ -178,58 +165,31 @@ func (info *StmtInfo) StmtType() string {
 	return info.stmtType
 }
 
-// StmtText returns the statment text. It returns "" if info is nil.
-func (info *StmtInfo) StmtText() string {
+// Text returns the statment text. It returns "" if info is nil.
+func (info *StmtInfo) Text() string {
 	if info == nil {
 		return ""
 	}
-	return info.stmtText
+	return info.text
 }
 
-// NumResultColumn returns the number of result columns. It returns 0 if info is nil or it is not "SELECT" statement.
-func (info *StmtInfo) NumResultColumn() int {
+// NumResultCol returns the number of result columns. It returns 0 if info is nil or it is not "SELECT" statement.
+func (info *StmtInfo) NumResultCol() int {
 	if info == nil {
 		return 0
 	}
-	return len(info.resultColumnNames)
+	return len(info.resultCols)
 }
 
-// ResultColumnName returns the i-th result column name. It returns "" if info is nil or i is out of range.
-func (info *StmtInfo) ResultColumnName(i int) string {
-	if info == nil {
-		return ""
-	}
-	if i < 0 || i >= len(info.resultColumnNames) {
-		return ""
-	}
-	return info.resultColumnNames[i]
-}
-
-// ResultColumnNames returns all result column names. It returns nil if info is nil.
-func (info *StmtInfo) ResultColumnNames() []string {
+// ResultCol returns the i-th result column. It returns "" if info is nil or i is out of range.
+func (info *StmtInfo) ResultCol(i int) *dbcontext.Col {
 	if info == nil {
 		return nil
 	}
-	return info.resultColumnNames
-}
-
-// ResultColumnType returns the i-th result column type. It returns nil if info is nil or i is out of range.
-func (info *StmtInfo) ResultColumnType(i int) *sql.ColumnType {
-	if info == nil {
+	if i < 0 || i >= len(info.resultCols) {
 		return nil
 	}
-	if i < 0 || i >= len(info.resultColumnTypes) {
-		return nil
-	}
-	return info.resultColumnTypes[i]
-}
-
-// ResultColumnTypes returns all result column types. It returns nil if info is nil.
-func (info *StmtInfo) ResultColumnTypes() []*sql.ColumnType {
-	if info == nil {
-		return nil
-	}
-	return info.resultColumnTypes
+	return &info.resultCols[i]
 }
 
 // Locals returns the associated value for the given key in StmtInfo's locals map.

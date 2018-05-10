@@ -1,13 +1,11 @@
 package directive
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/beevik/etree"
-
 	"github.com/huangjunwen/sqlw/dbcontext"
-	"github.com/huangjunwen/sqlw/statement"
+	"github.com/huangjunwen/sqlw/info"
 )
 
 type argDirective struct {
@@ -26,7 +24,7 @@ type ArgInfo struct {
 	directives []*argDirective
 }
 
-func (d *argDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *argDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	// Extract name/type from xml.
@@ -53,15 +51,15 @@ func (d *argDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.StmtIn
 	return nil
 }
 
-func (d *argDirective) Generate() (string, error) {
+func (d *argDirective) Fragment() (string, error) {
 	return "", nil
 }
 
-func (d *argDirective) GenerateQuery() (string, error) {
+func (d *argDirective) QueryFragment() (string, error) {
 	return "", nil
 }
 
-func (d *argDirective) ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
+func (d *argDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) error {
 	return nil
 }
 
@@ -101,7 +99,7 @@ func (info *ArgInfo) ArgType(i int) string {
 }
 
 // ExtractArgInfo extracts arg information from a statement or nil if not exists.
-func ExtractArgInfo(stmt *statement.StmtInfo) *ArgInfo {
+func ExtractArgInfo(stmt *info.StmtInfo) *ArgInfo {
 	locals := stmt.Locals(argLocalsKey)
 	if locals != nil {
 		return locals.(*ArgInfo)
@@ -110,7 +108,7 @@ func ExtractArgInfo(stmt *statement.StmtInfo) *ArgInfo {
 }
 
 func init() {
-	statement.RegistDirectiveFactory(func() statement.Directive {
+	info.RegistDirectiveFactory(func() info.Directive {
 		return &argDirective{}
 	}, "arg")
 }

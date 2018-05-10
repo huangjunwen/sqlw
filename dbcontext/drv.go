@@ -29,7 +29,7 @@ type Drv interface {
 	// ExtractFK returns information of a given foreign key constraint.
 	ExtractFK(conn *sql.Conn, tableName, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error)
 
-	// DataTypes returns full list of driver-specific type identifiers used in Column.DataType.
+	// DataTypes returns full list of driver-specific type identifiers used in Col.DataType.
 	DataTypes() []string
 
 	// Quote returns the quoted identifier.

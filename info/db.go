@@ -8,6 +8,7 @@ import (
 
 // DBInfo contains information of a database.
 type DBInfo struct {
+	dbctx      *dbcontext.DBCtx
 	tables     []*TableInfo
 	tableNames map[string]int
 }
@@ -51,10 +52,11 @@ type FKInfo struct {
 	refColumnNames []string
 }
 
-// NewDBInfo extracts information from database.
+// NewDBInfo extracts information from current database.
 func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 
 	db := &DBInfo{
+		dbctx:      dbctx,
 		tableNames: make(map[string]int),
 	}
 
@@ -170,6 +172,11 @@ func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 // Valid returns true if info != nil.
 func (info *DBInfo) Valid() bool {
 	return info != nil
+}
+
+// DBCtx returns the DBCtx object.
+func (info *DBInfo) DBCtx() *dbcontext.DBCtx {
+	return info.dbctx
 }
 
 // NumTable returns the number of table in the database. It returns 0 if info is nil.

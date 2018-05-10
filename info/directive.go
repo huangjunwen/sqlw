@@ -1,31 +1,28 @@
-package statement
+package info
 
 import (
-	"database/sql"
-
 	"github.com/beevik/etree"
-
 	"github.com/huangjunwen/sqlw/dbcontext"
 )
 
 // Directive represents a fragment of a statement.
 type Directive interface {
 	// Initialize the directive.
-	Initialize(dbctx *dbcontext.DBCtx, stmt *StmtInfo, tok etree.Token) error
+	Initialize(db *DBInfo, stmt *StmtInfo, tok etree.Token) error
 
-	// Generate generates the final text fragment of this directive.
-	Generate() (string, error)
+	// Fragment returns the final text fragment of this directive.
+	Fragment() (string, error)
 
-	// GenerateQuery generates the text fragment of this directive for SELECT query to obtain result column information.
-	// This can be different from Generate().
+	// QueryFragment returns the text fragment of this directive for SELECT query to obtain result column information.
+	// This can be different from Fragment.
 	//
 	// NOTE: If the directive is not for SELECT query, an error should be returned.
-	GenerateQuery() (string, error)
+	QueryFragment() (string, error)
 
 	// ProcessQueryResult processes the result column information (in place) of SELECT query.
 	//
 	// NOTE: If the directive is not for SELECT query, an error should be returned.
-	ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error
+	ProcessQueryResultColumns(resultCols *[]dbcontext.Col) error
 }
 
 // textDirective is a special directive.
@@ -33,20 +30,20 @@ type textDirective struct {
 	data string
 }
 
-func (d *textDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *StmtInfo, tok etree.Token) error {
+func (d *textDirective) Initialize(db *DBInfo, stmt *StmtInfo, tok etree.Token) error {
 	d.data = tok.(*etree.CharData).Data
 	return nil
 }
 
-func (d *textDirective) Generate() (string, error) {
+func (d *textDirective) Fragment() (string, error) {
 	return d.data, nil
 }
 
-func (d *textDirective) GenerateQuery() (string, error) {
+func (d *textDirective) QueryFragment() (string, error) {
 	return d.data, nil
 }
 
-func (d *textDirective) ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
+func (d *textDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) error {
 	return nil
 }
 

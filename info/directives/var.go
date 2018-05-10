@@ -1,13 +1,11 @@
 package directive
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/beevik/etree"
-
 	"github.com/huangjunwen/sqlw/dbcontext"
-	"github.com/huangjunwen/sqlw/statement"
+	"github.com/huangjunwen/sqlw/info"
 )
 
 type varDirective struct{}
@@ -23,7 +21,7 @@ type VarInfo struct {
 	values map[string]string
 }
 
-func (d *varDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.StmtInfo, tok etree.Token) error {
+func (d *varDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	// Get var name and (optinal) value.
@@ -47,18 +45,17 @@ func (d *varDirective) Initialize(dbctx *dbcontext.DBCtx, stmt *statement.StmtIn
 	info.values[varName] = varValue
 
 	return nil
-
 }
 
-func (d *varDirective) Generate() (string, error) {
+func (d *varDirective) Fragment() (string, error) {
 	return "", nil
 }
 
-func (d *varDirective) GenerateQuery() (string, error) {
+func (d *varDirective) QueryFragment() (string, error) {
 	return "", nil
 }
 
-func (d *varDirective) ProcessQueryResult(resultColumnNames *[]string, resultColumnTypes *[]*sql.ColumnType) error {
+func (d *varDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) error {
 	return nil
 }
 
@@ -85,7 +82,7 @@ func (info *VarInfo) Value(name string) string {
 }
 
 // ExtractVarInfo extracts custom var information from a statement or nil if not exists.
-func ExtractVarInfo(stmt *statement.StmtInfo) *VarInfo {
+func ExtractVarInfo(stmt *info.StmtInfo) *VarInfo {
 	locals := stmt.Locals(varLocalsKey)
 	if locals != nil {
 		return locals.(*VarInfo)
@@ -94,7 +91,7 @@ func ExtractVarInfo(stmt *statement.StmtInfo) *VarInfo {
 }
 
 func init() {
-	statement.RegistDirectiveFactory(func() statement.Directive {
+	info.RegistDirectiveFactory(func() info.Directive {
 		return &varDirective{}
 	}, "var")
 }
