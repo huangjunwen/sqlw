@@ -5,31 +5,33 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/huangjunwen/sqlw/driver"
+	"github.com/huangjunwen/sqlw/dbcontext"
 )
 
-// ScanTypeMap maps primitive scan type to scan type.
+// ScanTypeMap maps data type to scan type.
 // [0] is for not nullable types.
 // [1] is for nullable types.
 type ScanTypeMap map[string][2]string
 
 // NewScanTypeMap loads scan type map from io.Reader.
-func NewScanTypeMap(r io.Reader) (ScanTypeMap, error) {
+func NewScanTypeMap(dbctx *dbcontext.DBCtx, r io.Reader) (ScanTypeMap, error) {
 	ret := ScanTypeMap{}
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(&ret); err != nil {
 		return nil, err
 	}
-	for _, k := range driver.PrimitiveScanTypes {
-		v, ok := ret[k]
+	for _, dataType := range dbctx.Drv().DataTypes() {
+		v, ok := ret[dataType]
 		if !ok {
-			return nil, fmt.Errorf("Scan type map has no primitive scan type %+q", k)
+			// If some data type is missing, filled it with "[]byte"
+			ret[dataType] = [2]string{"[]byte", "[]byte"}
+			continue
 		}
 		if v[0] == "" {
-			return nil, fmt.Errorf("Primitive scan type %+q has no not-nullable scan type", k)
+			return nil, fmt.Errorf("Data type %+q has no not-nullable scan type", dataType)
 		}
 		if v[1] == "" {
-			return nil, fmt.Errorf("Primitive scan type %+q has no nullable scan type", k)
+			return nil, fmt.Errorf("Data type %+q has no nullable scan type", dataType)
 		}
 	}
 	return ret, nil

@@ -2,10 +2,11 @@ package render
 
 import (
 	"fmt"
-	"github.com/huangjunwen/sqlw/dbcontext"
 	"net/http"
 	"os"
 	"path"
+
+	"github.com/huangjunwen/sqlw/dbcontext"
 )
 
 // Option is used to create Renderer.

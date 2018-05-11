@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	_ "github.com/huangjunwen/sqlw/driver/mysql"
+	_ "github.com/huangjunwen/sqlw/dbcontext/drvs/mysql"
 
 	"github.com/huangjunwen/sqlw/dbcontext"
 	"github.com/huangjunwen/sqlw/render"
@@ -65,7 +65,7 @@ func main() {
 	if tmplDir != "" {
 		fs = http.Dir(tmplDir)
 	} else {
-		fs = newPrefixFS(dbctx.DriverName(), FS(false))
+		fs = newPrefixFS(dbctx.Name(), FS(false))
 	}
 
 	// Create Renderer.

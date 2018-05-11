@@ -1,4 +1,4 @@
-package directive
+package directives
 
 import (
 	"crypto/rand"
@@ -253,6 +253,15 @@ func (info *WildcardInfo) WildcardAlias(i int) string {
 // Valid return true if info != nil.
 func (info *WildcardInfo) Valid() bool {
 	return info != nil
+}
+
+// ExtractWildcardInfo extracts wildcard information from a statement or nil if not exists.
+func ExtractWildcardInfo(stmt *info.StmtInfo) *WildcardInfo {
+	locals := stmt.Locals(wildcardLocalsKey)
+	if locals != nil {
+		return locals.(*WildcardInfo)
+	}
+	return nil
 }
 
 func init() {

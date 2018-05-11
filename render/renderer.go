@@ -13,7 +13,7 @@ import (
 
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/dbcontext"
-	"github.com/huangjunwen/sqlw/statement"
+	"github.com/huangjunwen/sqlw/info"
 )
 
 // Renderer is used for generating code.
@@ -27,15 +27,16 @@ type Renderer struct {
 	whitelist map[string]struct{}
 	blacklist map[string]struct{}
 
+	// Runtime variables.
+	db          *info.DBInfo
 	scanTypeMap ScanTypeMap
 	templates   map[string]*template.Template
 }
 
 // NewRenderer create new Renderer.
 func NewRenderer(opts ...Option) (*Renderer, error) {
-	r := &Renderer{
-		templates: make(map[string]*template.Template),
-	}
+
+	r := &Renderer{}
 	for _, op := range opts {
 		if err := op(r); err != nil {
 			return nil, err
@@ -117,6 +118,18 @@ func (r *Renderer) render(tmplName, fileName string, data interface{}) error {
 // Run generate code.
 func (r *Renderer) Run() error {
 
+	// Reset runtime variables.
+	r.db = nil
+	r.scanTypeMap = nil
+	r.templates = make(map[string]*template.Template)
+
+	// Load db
+	db, err := info.NewDBInfo(r.dbctx)
+	if err != nil {
+		return err
+	}
+	r.db = db
+
 	// Parse manifest.
 	manifestFile, err := r.tmplFS.Open("/manifest.json")
 	if err != nil {
@@ -139,7 +152,7 @@ func (r *Renderer) Run() error {
 	}
 	defer scanTypeMapFile.Close()
 
-	scanTypeMap, err := NewScanTypeMap(scanTypeMapFile)
+	scanTypeMap, err := NewScanTypeMap(r.dbctx, scanTypeMapFile)
 	if err != nil {
 		return err
 	}
@@ -149,7 +162,7 @@ func (r *Renderer) Run() error {
 	if manifest.TableTemplate == "" {
 		return fmt.Errorf("Missing 'table_tmpl' in manifest.json")
 	}
-	for _, table := range r.dbctx.DB().Tables() {
+	for _, table := range r.db.Tables() {
 		if len(r.whitelist) != 0 {
 			if _, found := r.whitelist[table.TableName()]; !found {
 				continue
@@ -160,9 +173,10 @@ func (r *Renderer) Run() error {
 			}
 		}
 		if err := r.render(manifest.TableTemplate, "table_"+table.TableName()+".go", map[string]interface{}{
-			"Table":       table,
-			"DBContext":   r.dbctx,
 			"PackageName": r.outputPkg,
+			"DBCtx":       r.dbctx,
+			"DB":          r.db,
+			"Table":       table,
 		}); err != nil {
 			return err
 		}
@@ -190,9 +204,9 @@ func (r *Renderer) Run() error {
 				return err
 			}
 
-			stmtInfos := []*statement.StmtInfo{}
+			stmtInfos := []*info.StmtInfo{}
 			for _, elem := range doc.ChildElements() {
-				stmtInfo, err := statement.NewStmtInfo(r.dbctx, elem)
+				stmtInfo, err := info.NewStmtInfo(r.db, elem)
 				if err != nil {
 					return err
 				}
@@ -201,9 +215,10 @@ func (r *Renderer) Run() error {
 
 			fileName := "stmt_" + stripSuffix(stmtFileName) + ".go"
 			if err := r.render(manifest.StmtTemplate, fileName, map[string]interface{}{
-				"Stmts":       stmtInfos,
-				"DBContext":   r.dbctx,
 				"PackageName": r.outputPkg,
+				"DBCtx":       r.dbctx,
+				"DB":          r.db,
+				"Stmts":       stmtInfos,
 			}); err != nil {
 				return err
 			}
@@ -216,8 +231,9 @@ func (r *Renderer) Run() error {
 		// Render.
 		fileName := "extra_" + stripSuffix(tmplName) + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{
-			"DBContext":   r.dbctx,
 			"PackageName": r.outputPkg,
+			"DBCtx":       r.dbctx,
+			"DB":          r.db,
 		}); err != nil {
 			return err
 		}

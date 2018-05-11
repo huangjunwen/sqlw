@@ -7,8 +7,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/huangjunwen/sqlw/driver"
-	"github.com/huangjunwen/sqlw/statement/directive"
+	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/info/directives"
 )
 
 var (
@@ -98,28 +98,20 @@ func (r *Renderer) funcMap() template.FuncMap {
 		"Nullable": func(typ *sql.ColumnType) (bool, error) {
 			nullable, ok := typ.Nullable()
 			if !ok {
-				return false, fmt.Errorf("Nullable test not supported for driver %+q", ctx.DriverName())
+				return false, fmt.Errorf("Nullable test not supported for %+q", ctx.Name())
 			}
 			return nullable, nil
 		},
 
-		"ScanType": func(typ *sql.ColumnType) (string, error) {
-			primitiveScanType, err := ctx.Drv().PrimitiveScanType(typ)
-			if err != nil {
-				return "", err
-			}
-			if !driver.IsPrimitiveScanType(primitiveScanType) {
-				return "", fmt.Errorf("%+q is not a primitive can type", primitiveScanType)
-			}
-
-			scanTypes, found := r.scanTypeMap[primitiveScanType]
+		"ScanType": func(col *dbcontext.Col) (string, error) {
+			scanTypes, found := r.scanTypeMap[col.DataType]
 			if !found {
-				return "", fmt.Errorf("Can't get scan type for %+q", primitiveScanType)
+				return "", fmt.Errorf("Can't get scan type for %+q", col.DataType)
 			}
 
-			nullable, ok := typ.Nullable()
+			nullable, ok := col.Nullable()
 			if !ok {
-				return "", fmt.Errorf("Nullable test not supported for driver %+q", ctx.DriverName())
+				return "", fmt.Errorf("Nullable test not supported for driver %+q", ctx.Name())
 			}
 
 			if nullable {
@@ -129,8 +121,8 @@ func (r *Renderer) funcMap() template.FuncMap {
 
 		},
 
-		"ExtractArgInfo":      directive.ExtractArgInfo,
-		"ExtractVarInfo":      directive.ExtractVarInfo,
-		"ExtractWildcardInfo": directive.ExtractWildcardInfo,
+		"ExtractArgsInfo":     directives.ExtractArgsInfo,
+		"ExtractVarsInfo":     directives.ExtractVarsInfo,
+		"ExtractWildcardInfo": directives.ExtractWildcardInfo,
 	}
 }
