@@ -19,9 +19,12 @@ var (
 	argLocalsKey = argLocalsKeyType{}
 )
 
-// ArgInfo contains wrapper function argument information in a statement.
-type ArgInfo struct {
-	directives []*argDirective
+// ArgInfo contains single wrapper function argument information.
+type ArgInfo argDirective
+
+// ArgsInfo contains wrapper function arguments information in a statement.
+type ArgsInfo struct {
+	argInfos []*ArgInfo
 }
 
 func (d *argDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
@@ -39,14 +42,14 @@ func (d *argDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etre
 	d.argName = argName
 	d.argType = argType
 
-	// Add the directive to ArgInfo.
+	// Add the directive to ArgsInfo.
 	locals := stmt.Locals(argLocalsKey)
 	if locals == nil {
-		locals = &ArgInfo{}
+		locals = &ArgsInfo{}
 		stmt.SetLocals(argLocalsKey, locals)
 	}
-	info := locals.(*ArgInfo)
-	info.directives = append(info.directives, d)
+	info := locals.(*ArgsInfo)
+	info.argInfos = append(info.argInfos, (*ArgInfo)(d))
 
 	return nil
 }
@@ -63,46 +66,41 @@ func (d *argDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) er
 	return nil
 }
 
+// ArgName returns the argument's name.
+func (info *ArgInfo) ArgName() string {
+	return info.argName
+}
+
+// ArgType returns the argument's type.
+func (info *ArgInfo) ArgType() string {
+	return info.argType
+}
+
 // Valid returns true if info != nil.
-func (info *ArgInfo) Valid() bool {
+func (info *ArgsInfo) Valid() bool {
 	return info != nil
 }
 
 // NumArg returns the number of arguments in the statement. It returns 0 if info is nil or there is no args at all.
-func (info *ArgInfo) NumArg() int {
+func (info *ArgsInfo) NumArg() int {
 	if info == nil {
 		return 0
 	}
-	return len(info.directives)
+	return len(info.argInfos)
 }
 
-// ArgName returns the i-th argument's name. It returns "" if info is nil or i is out of range.
-func (info *ArgInfo) ArgName(i int) string {
+func (info *ArgsInfo) Args() []*ArgInfo {
 	if info == nil {
-		return ""
+		return nil
 	}
-	if i < 0 || i >= len(info.directives) {
-		return ""
-	}
-	return info.directives[i].argName
+	return info.argInfos
 }
 
-// ArgType returns the i-th argument's type. It returns "" if info is nil or i is out of range.
-func (info *ArgInfo) ArgType(i int) string {
-	if info == nil {
-		return ""
-	}
-	if i < 0 || i >= len(info.directives) {
-		return ""
-	}
-	return info.directives[i].argType
-}
-
-// ExtractArgInfo extracts arg information from a statement or nil if not exists.
-func ExtractArgInfo(stmt *info.StmtInfo) *ArgInfo {
+// ExtractArgsInfo extracts arg information from a statement or nil if not exists.
+func ExtractArgsInfo(stmt *info.StmtInfo) *ArgsInfo {
 	locals := stmt.Locals(argLocalsKey)
 	if locals != nil {
-		return locals.(*ArgInfo)
+		return locals.(*ArgsInfo)
 	}
 	return nil
 }

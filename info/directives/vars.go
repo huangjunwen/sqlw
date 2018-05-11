@@ -16,8 +16,8 @@ var (
 	varLocalsKey = varLocalsKeyType{}
 )
 
-// VarInfo contains custom variables in a statement.
-type VarInfo struct {
+// VarsInfo contains custom variables in a statement.
+type VarsInfo struct {
 	values map[string]string
 }
 
@@ -34,12 +34,12 @@ func (d *varDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etre
 	// Get/set locals
 	locals := stmt.Locals(varLocalsKey)
 	if locals == nil {
-		locals = &VarInfo{
+		locals = &VarsInfo{
 			values: make(map[string]string),
 		}
 		stmt.SetLocals(varLocalsKey, locals)
 	}
-	info := locals.(*VarInfo)
+	info := locals.(*VarsInfo)
 
 	// Store name/value pair.
 	info.values[varName] = varValue
@@ -60,12 +60,12 @@ func (d *varDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) er
 }
 
 // Valid returns true if info != nil
-func (info *VarInfo) Valid() bool {
+func (info *VarsInfo) Valid() bool {
 	return info != nil
 }
 
 // Has returns true if the named var exists. It returns false if info is nil or not exists.
-func (info *VarInfo) Has(name string) bool {
+func (info *VarsInfo) Has(name string) bool {
 	if info == nil {
 		return false
 	}
@@ -74,18 +74,18 @@ func (info *VarInfo) Has(name string) bool {
 }
 
 // Value returns the named var's value. It returns "" if info is nil or not exists or the value is just "".
-func (info *VarInfo) Value(name string) string {
+func (info *VarsInfo) Value(name string) string {
 	if info == nil {
 		return ""
 	}
 	return info.values[name]
 }
 
-// ExtractVarInfo extracts custom var information from a statement or nil if not exists.
-func ExtractVarInfo(stmt *info.StmtInfo) *VarInfo {
+// ExtractVarsInfo extracts custom var information from a statement or nil if not exists.
+func ExtractVarsInfo(stmt *info.StmtInfo) *VarsInfo {
 	locals := stmt.Locals(varLocalsKey)
 	if locals != nil {
-		return locals.(*VarInfo)
+		return locals.(*VarsInfo)
 	}
 	return nil
 }

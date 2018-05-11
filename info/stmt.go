@@ -181,15 +181,12 @@ func (info *StmtInfo) NumResultCol() int {
 	return len(info.resultCols)
 }
 
-// ResultCol returns the i-th result column. It returns "" if info is nil or i is out of range.
-func (info *StmtInfo) ResultCol(i int) *dbcontext.Col {
+// ResultCols returns result columns. It returns nil if info is nil.
+func (info *StmtInfo) ResultCols() []dbcontext.Col {
 	if info == nil {
 		return nil
 	}
-	if i < 0 || i >= len(info.resultCols) {
-		return nil
-	}
-	return &info.resultCols[i]
+	return info.resultCols
 }
 
 // Locals returns the associated value for the given key in StmtInfo's locals map.
