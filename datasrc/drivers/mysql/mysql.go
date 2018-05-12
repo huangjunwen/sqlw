@@ -7,18 +7,18 @@ import (
 	"reflect"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 )
 
-type mysqlDrv struct{}
+type mysqlDriver struct{}
 
 var (
-	_ dbcontext.Drv            = mysqlDrv{}
-	_ dbcontext.DrvWithAutoInc = mysqlDrv{}
+	_ datasrc.Driver            = mysqlDriver{}
+	_ datasrc.DriverWithAutoInc = mysqlDriver{}
 )
 
 var (
-	// DataTypes is the full list of data type in mysql drv
+	// DataTypes is the full list of data type in mysql driver
 	DataTypes = []string{
 		// Float types
 		"float32",
@@ -66,7 +66,7 @@ const (
 	flagUnsigned = 1 << 5
 )
 
-func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (columns []dbcontext.Col, err error) {
+func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string) (columns []datasrc.Column, err error) {
 	rows, err := conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
@@ -200,7 +200,7 @@ func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (col
 			bad()
 		}
 
-		columns = append(columns, dbcontext.Col{
+		columns = append(columns, datasrc.Column{
 			ColumnType: columnType,
 			DataType:   dataType,
 		})
@@ -211,8 +211,8 @@ func (drv mysqlDrv) ExtractQueryResultColumns(conn *sql.Conn, query string) (col
 
 }
 
-func (drv mysqlDrv) ExtractTableNames(conn *sql.Conn) (tableNames []string, err error) {
-	dbName, err := extractDBName(conn)
+func (driver mysqlDriver) LoadTableNames(conn *sql.Conn) (tableNames []string, err error) {
+	dbName, err := loadDBName(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -240,12 +240,12 @@ func (drv mysqlDrv) ExtractTableNames(conn *sql.Conn) (tableNames []string, err 
 	return tableNames, nil
 }
 
-func (drv mysqlDrv) ExtractColumns(conn *sql.Conn, tableName string) (columns []dbcontext.Col, err error) {
-	return drv.ExtractQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
+func (driver mysqlDriver) LoadColumns(conn *sql.Conn, tableName string) (columns []datasrc.Column, err error) {
+	return driver.LoadQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
 }
 
-func (drv mysqlDrv) ExtractAutoIncColumn(conn *sql.Conn, tableName string) (columnName string, err error) {
-	dbName, err := extractDBName(conn)
+func (driver mysqlDriver) LoadAutoIncColumn(conn *sql.Conn, tableName string) (columnName string, err error) {
+	dbName, err := loadDBName(conn)
 	if err != nil {
 		return "", err
 	}
@@ -273,8 +273,8 @@ func (drv mysqlDrv) ExtractAutoIncColumn(conn *sql.Conn, tableName string) (colu
 	return columnName, nil
 }
 
-func (drv mysqlDrv) ExtractIndexNames(conn *sql.Conn, tableName string) (indexNames []string, err error) {
-	dbName, err := extractDBName(conn)
+func (driver mysqlDriver) LoadIndexNames(conn *sql.Conn, tableName string) (indexNames []string, err error) {
+	dbName, err := loadDBName(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -302,8 +302,8 @@ func (drv mysqlDrv) ExtractIndexNames(conn *sql.Conn, tableName string) (indexNa
 
 }
 
-func (drv mysqlDrv) ExtractIndex(conn *sql.Conn, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
-	dbName, err := extractDBName(conn)
+func (driver mysqlDriver) LoadIndex(conn *sql.Conn, tableName string, indexName string) (columnNames []string, isPrimary bool, isUnique bool, err error) {
+	dbName, err := loadDBName(conn)
 	if err != nil {
 		return nil, false, false, err
 	}
@@ -350,8 +350,8 @@ func (drv mysqlDrv) ExtractIndex(conn *sql.Conn, tableName string, indexName str
 	return
 }
 
-func (drv mysqlDrv) ExtractFKNames(conn *sql.Conn, tableName string) (fkNames []string, err error) {
-	dbName, err := extractDBName(conn)
+func (driver mysqlDriver) LoadFKNames(conn *sql.Conn, tableName string) (fkNames []string, err error) {
+	dbName, err := loadDBName(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -378,8 +378,8 @@ func (drv mysqlDrv) ExtractFKNames(conn *sql.Conn, tableName string) (fkNames []
 	return fkNames, nil
 }
 
-func (drv mysqlDrv) ExtractFK(conn *sql.Conn, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
-	dbName, err := extractDBName(conn)
+func (driver mysqlDriver) LoadFK(conn *sql.Conn, tableName string, fkName string) (columnNames []string, refTableName string, refColumnNames []string, err error) {
+	dbName, err := loadDBName(conn)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -423,15 +423,15 @@ func (drv mysqlDrv) ExtractFK(conn *sql.Conn, tableName string, fkName string) (
 
 }
 
-func (drv mysqlDrv) DataTypes() []string {
+func (driver mysqlDriver) DataTypes() []string {
 	return DataTypes
 }
 
-func (drv mysqlDrv) Quote(identifier string) string {
+func (driver mysqlDriver) Quote(identifier string) string {
 	return fmt.Sprintf("`%s`", identifier)
 }
 
-func extractDBName(conn *sql.Conn) (string, error) {
+func loadDBName(conn *sql.Conn) (string, error) {
 	var dbName sql.NullString
 	// NOTE: https://dev.mysql.com/doc/refman/5.7/en/information-functions.html#function_database
 	// SELECT DATABASE() returns current database or NULL if there is no current default database.
@@ -446,5 +446,5 @@ func extractDBName(conn *sql.Conn) (string, error) {
 }
 
 func init() {
-	dbcontext.RegistDrv("mysql", mysqlDrv{})
+	datasrc.RegistDriver("mysql", mysqlDriver{})
 }

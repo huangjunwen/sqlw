@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	conn *sql.Conn
-	drv  mysqlDrv
+	conn   *sql.Conn
+	driver mysqlDriver
 )
 
 func TestMain(m *testing.M) {
@@ -46,23 +46,23 @@ func TestNoDBSelected(t *testing.T) {
 	exec("USE notexist")
 	exec("DROP DATABASE notexist")
 
-	// --- extractDBName ---
+	// --- loadDBName ---
 	{
-		dbName, err := extractDBName(conn)
+		dbName, err := loadDBName(conn)
 		assert.Error(err)
 		assert.Equal("", dbName)
 	}
 
-	// --- ExtractTableNames --
+	// --- LoadTableNames --
 	{
-		tableNames, err := drv.ExtractTableNames(conn)
+		tableNames, err := driver.LoadTableNames(conn)
 		assert.Error(err)
 		assert.Len(tableNames, 0)
 	}
 
 }
 
-func TestExtractQueryResultColumns(t *testing.T) {
+func TestLoadQueryResultColumns(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -125,7 +125,7 @@ func TestExtractQueryResultColumns(t *testing.T) {
 		" `blob_n_string` BLOB " +
 		")")
 
-	columns, err := drv.ExtractQueryResultColumns(conn, "SELECT * FROM `types`")
+	columns, err := driver.LoadQueryResultColumns(conn, "SELECT * FROM `types`")
 	assert.NoError(err)
 	for _, column := range columns {
 		parts := strings.Split(column.Name(), "_")
@@ -135,7 +135,7 @@ func TestExtractQueryResultColumns(t *testing.T) {
 
 }
 
-func TestExtractTableInfo(t *testing.T) {
+func TestLoadTableInfo(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -176,62 +176,62 @@ func TestExtractTableInfo(t *testing.T) {
 		" FOREIGN KEY (`by`) REFERENCES `group` (`by`)" +
 		")")
 
-	// --- extractDBName ---
+	// --- loadDBName ---
 	{
-		dbName, err := extractDBName(conn)
+		dbName, err := loadDBName(conn)
 		assert.NoError(err)
 		assert.Equal("testing2", dbName)
 	}
 
-	// --- ExtractTableNames ---
+	// --- LoadTableNames ---
 	{
-		tableNames, err := drv.ExtractTableNames(conn)
+		tableNames, err := driver.LoadTableNames(conn)
 		assert.NoError(err)
 		assert.Len(tableNames, 4)
 	}
 
-	// --- ExtractColumns ---
+	// --- LoadColumns ---
 	{
-		columns, err := drv.ExtractColumns(conn, "where")
+		columns, err := driver.LoadColumns(conn, "where")
 		assert.NoError(err)
 		assert.Len(columns, 2)
 		assert.Equal("and", columns[0].Name())
 		assert.Equal("or", columns[1].Name())
 	}
 
-	// -- ExtractAutoIncColumn ---
+	// -- LoadAutoIncColumn ---
 	{
 		{
-			columnName, err := drv.ExtractAutoIncColumn(conn, "group")
+			columnName, err := driver.LoadAutoIncColumn(conn, "group")
 			assert.NoError(err)
 			assert.Equal("by", columnName)
 		}
 
 		{
-			columnName, err := drv.ExtractAutoIncColumn(conn, "where")
+			columnName, err := driver.LoadAutoIncColumn(conn, "where")
 			assert.NoError(err)
 			assert.Equal("", columnName)
 		}
 	}
 
-	// -- ExtractIndexNames ---
+	// -- LoadIndexNames ---
 	{
 		{
-			indexNames, err := drv.ExtractIndexNames(conn, "from")
+			indexNames, err := driver.LoadIndexNames(conn, "from")
 			assert.NoError(err)
 			assert.Len(indexNames, 1)
 			assert.Equal("index", indexNames[0])
 		}
 
 		{
-			indexNames, err := drv.ExtractIndexNames(conn, "where")
+			indexNames, err := driver.LoadIndexNames(conn, "where")
 			assert.NoError(err)
 			assert.Len(indexNames, 1)
 			assert.Equal("index", indexNames[0])
 		}
 
 		{
-			indexNames, err := drv.ExtractIndexNames(conn, "group")
+			indexNames, err := driver.LoadIndexNames(conn, "group")
 			assert.NoError(err)
 			assert.Len(indexNames, 1)
 			assert.Equal("PRIMARY", indexNames[0])
@@ -239,17 +239,17 @@ func TestExtractTableInfo(t *testing.T) {
 
 		{
 			// NOTE: implicit key for foreign key
-			indexNames, err := drv.ExtractIndexNames(conn, "order")
+			indexNames, err := driver.LoadIndexNames(conn, "order")
 			assert.NoError(err)
 			assert.Len(indexNames, 1)
 		}
 
 	}
 
-	// -- ExtractIndex ---
+	// -- LoadIndex ---
 	{
 		{
-			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "from", "index")
+			columnNames, isPrimary, isUnique, err := driver.LoadIndex(conn, "from", "index")
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
 			assert.Equal("join", columnNames[0])
@@ -258,7 +258,7 @@ func TestExtractTableInfo(t *testing.T) {
 		}
 
 		{
-			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "where", "index")
+			columnNames, isPrimary, isUnique, err := driver.LoadIndex(conn, "where", "index")
 			assert.NoError(err)
 			assert.Len(columnNames, 2)
 			assert.Equal("or", columnNames[0])
@@ -268,7 +268,7 @@ func TestExtractTableInfo(t *testing.T) {
 		}
 
 		{
-			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "group", "PRIMARY")
+			columnNames, isPrimary, isUnique, err := driver.LoadIndex(conn, "group", "PRIMARY")
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
 			assert.Equal("by", columnNames[0])
@@ -277,8 +277,8 @@ func TestExtractTableInfo(t *testing.T) {
 		}
 
 		{
-			indexNames, _ := drv.ExtractIndexNames(conn, "order")
-			columnNames, isPrimary, isUnique, err := drv.ExtractIndex(conn, "order", indexNames[0])
+			indexNames, _ := driver.LoadIndexNames(conn, "order")
+			columnNames, isPrimary, isUnique, err := driver.LoadIndex(conn, "order", indexNames[0])
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
 			assert.Equal("by", columnNames[0])
@@ -287,27 +287,27 @@ func TestExtractTableInfo(t *testing.T) {
 		}
 	}
 
-	// -- ExtractFKNames ---
+	// -- LoadFKNames ---
 	{
 		{
-			fkNames, err := drv.ExtractFKNames(conn, "from")
+			fkNames, err := driver.LoadFKNames(conn, "from")
 			assert.NoError(err)
 			assert.Len(fkNames, 0)
 		}
 
 		{
-			fkNames, err := drv.ExtractFKNames(conn, "order")
+			fkNames, err := driver.LoadFKNames(conn, "order")
 			assert.NoError(err)
 			assert.Len(fkNames, 1)
 		}
 
 	}
 
-	// --- ExtractFK ---
+	// --- LoadFK ---
 	{
 		{
-			fkNames, _ := drv.ExtractFKNames(conn, "order")
-			columnNames, refTableName, refColumnNames, err := drv.ExtractFK(conn, "order", fkNames[0])
+			fkNames, _ := driver.LoadFKNames(conn, "order")
+			columnNames, refTableName, refColumnNames, err := driver.LoadFK(conn, "order", fkNames[0])
 			assert.NoError(err)
 			assert.Len(columnNames, 1)
 			assert.Equal("by", columnNames[0])

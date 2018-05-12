@@ -54,7 +54,7 @@ func WithMysqlConn(fn func(context.Context) error) func(context.Context) error {
 		}
 
 		// Start container.
-		log.Printf("[testutils][mysql] Starting mysql server...\n")
+		log.Printf("[testutils][mysql] Starting mysql server, may take a while to pull docker image if this is the first time running...\n")
 		resource, err = pool.Run("mysql", ver, []string{"MYSQL_ROOT_PASSWORD=123456"})
 		if err != nil {
 			return

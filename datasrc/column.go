@@ -1,11 +1,11 @@
-package dbcontext
+package datasrc
 
 import (
 	"database/sql"
 )
 
-// Col represents query result column.
-type Col struct {
+// Column represents a query result column.
+type Column struct {
 	// ColumnType is the raw column type.
 	*sql.ColumnType
 
