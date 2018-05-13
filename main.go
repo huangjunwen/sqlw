@@ -62,10 +62,15 @@ func main() {
 
 	// Choose template.
 	fs := http.FileSystem(nil)
-	if tmplDir != "" {
+	if tmplDir != "" && tmplDir[0] != '@' {
 		fs = http.Dir(tmplDir)
 	} else {
-		fs = newPrefixFS(loader.DriverName(), FS(false))
+		prefix := loader.DriverName()
+		if tmplDir != "" {
+			// tmplDir is starts with '@'
+			prefix = tmplDir[1:]
+		}
+		fs = newPrefixFS(prefix, FS(false))
 	}
 
 	// Create Renderer.
