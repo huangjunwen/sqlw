@@ -128,9 +128,9 @@ func TestLoadQueryResultColumns(t *testing.T) {
 	columns, err := driver.LoadQueryResultColumns(conn, "SELECT * FROM `types`")
 	assert.NoError(err)
 	for _, column := range columns {
-		parts := strings.Split(column.Name(), "_")
+		parts := strings.Split(column.Name, "_")
 		assert.Len(parts, 3)
-		assert.Equal(parts[2], column.DataType, "DataType error for column %+q", column.Name())
+		assert.Equal(parts[2], column.DataType, "DataType error for column %+q", column.Name)
 	}
 
 }
@@ -195,8 +195,8 @@ func TestLoadTableInfo(t *testing.T) {
 		columns, err := driver.LoadColumns(conn, "where")
 		assert.NoError(err)
 		assert.Len(columns, 2)
-		assert.Equal("and", columns[0].Name())
-		assert.Equal("or", columns[1].Name())
+		assert.Equal("and", columns[0].Name)
+		assert.Equal("or", columns[1].Name)
 	}
 
 	// -- LoadAutoIncColumn ---

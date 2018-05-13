@@ -168,7 +168,7 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 
 	for _, resultCol := range *resultCols {
 
-		resultColName := resultCol.Name()
+		resultColName := resultCol.Name
 		isMarker, idx, isBegin := info.parseMarker(resultColName)
 
 		// It's a marker column, toggle wildcard mode

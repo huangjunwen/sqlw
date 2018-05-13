@@ -85,7 +85,8 @@ func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string) (
 		// - Unsigned or not can't be determine when scan type is NullInt64
 		// Do some tricks to read them from private fields.
 		//
-		// NOTE: In general reading data from private field is not a good idea
+		// XXX: In general reading data from private field is not a bad idea, but i think here
+		// is ok since we're only use these information to generate code
 		field := reflect.
 			ValueOf(rows).          // *sql.Rows
 			Elem().                 // sql.Rows
@@ -200,10 +201,7 @@ func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string) (
 			bad()
 		}
 
-		columns = append(columns, &datasrc.Column{
-			ColumnType: columnType,
-			DataType:   dataType,
-		})
+		columns = append(columns, datasrc.NewColumn(columnType, dataType))
 
 	}
 

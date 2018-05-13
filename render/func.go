@@ -112,16 +112,21 @@ func (r *Renderer) funcMap() template.FuncMap {
 			case *info.ColumnInfo:
 				col = c.Col()
 			default:
-				return "", fmt.Errorf("Expect column in ScanType but got %T", c)
+				return "", fmt.Errorf("Expect table column or query result column in ScanType but got %T", c)
 			}
+			if col == nil {
+				return "", fmt.Errorf("Column is nil")
+			}
+
 			scanTypes, found := r.scanTypeMap[col.DataType]
 			if !found {
 				return "", fmt.Errorf("Can't get scan type for %+q", col.DataType)
 			}
 
-			nullable, ok := col.Nullable()
-			if !ok {
-				return "", fmt.Errorf("Nullable test not supported for driver %+q", loader.DriverName())
+			// NOTE: If not HasNullable, then assume it is nullable since nullable type > not-nullable type.
+			nullable := col.Nullable
+			if !col.HasNullable {
+				nullable = true
 			}
 
 			if nullable {

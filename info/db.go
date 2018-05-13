@@ -26,11 +26,11 @@ type TableInfo struct {
 	autoIncColumn *ColumnInfo // nil if not exists
 }
 
-// ColumnInfo contains information of a column.
+// ColumnInfo contains information of a table column.
 type ColumnInfo struct {
 	table *TableInfo
-	col   *datasrc.Column
 	pos   int // position in table
+	col   *datasrc.Column
 }
 
 // IndexInfo contains information of an index.
@@ -82,11 +82,11 @@ func NewDBInfo(loader *datasrc.Loader) (*DBInfo, error) {
 		for i, col := range cols {
 			column := &ColumnInfo{
 				table: table,
-				col:   col,
 				pos:   i,
+				col:   col,
 			}
 			table.columns = append(table.columns, column)
-			table.columnNames[col.Name()] = len(table.columns) - 1
+			table.columnNames[col.Name] = len(table.columns) - 1
 		}
 
 		// Auto increment column
@@ -389,27 +389,7 @@ func (info *ColumnInfo) ColumnName() string {
 	if info == nil {
 		return ""
 	}
-	return info.col.Name()
-}
-
-// DataType returns the 'translated' type name of the column. It returns "" if info is nil.
-func (info *ColumnInfo) DataType() string {
-	if info == nil {
-		return ""
-	}
-	return info.col.DataType
-}
-
-// Nullable returns the nullable of the column. It returns true if info is nil or the driver does not support nullable property.
-func (info *ColumnInfo) Nullable() bool {
-	if info == nil {
-		return true
-	}
-	nullable, ok := info.col.Nullable()
-	if !ok {
-		return true
-	}
-	return nullable
+	return info.col.Name
 }
 
 // Col returns the underly datasrc.Column. It returns nil if info is nil.
