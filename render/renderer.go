@@ -143,9 +143,6 @@ func (r *Renderer) Run() error {
 	}
 
 	// Load scan type map.
-	if manifest.ScanTypeMap == "" {
-		return fmt.Errorf("Missing 'scan_type_map' in manifest.json")
-	}
 	scanTypeMapFile, err := r.tmplFS.Open(manifest.ScanTypeMap)
 	if err != nil {
 		return err
@@ -159,9 +156,6 @@ func (r *Renderer) Run() error {
 	r.scanTypeMap = scanTypeMap
 
 	// Render tables.
-	if manifest.TableTemplate == "" {
-		return fmt.Errorf("Missing 'table_tmpl' in manifest.json")
-	}
 	for _, table := range r.db.Tables() {
 		if len(r.whitelist) != 0 {
 			if _, found := r.whitelist[table.TableName()]; !found {
@@ -172,7 +166,7 @@ func (r *Renderer) Run() error {
 				continue
 			}
 		}
-		if err := r.render(manifest.TableTemplate, "table_"+table.TableName()+".go", map[string]interface{}{
+		if err := r.render(manifest.Templates.Table, "table_"+table.TableName()+".go", map[string]interface{}{
 			"PackageName": r.outputPkg,
 			"Loader":      r.loader,
 			"DB":          r.db,
@@ -180,12 +174,20 @@ func (r *Renderer) Run() error {
 		}); err != nil {
 			return err
 		}
+		if manifest.Templates.TableTest != "" {
+			if err := r.render(manifest.Templates.TableTest, "table_"+table.TableName()+"_test.go", map[string]interface{}{
+				"PackageName": r.outputPkg,
+				"Loader":      r.loader,
+				"DB":          r.db,
+				"Table":       table,
+			}); err != nil {
+				return err
+			}
+
+		}
 	}
 
 	// Render statements.
-	if manifest.StmtTemplate == "" {
-		return fmt.Errorf("Missing 'stmt_tmpl' in manifest.json")
-	}
 	if r.stmtDir != "" {
 		stmtFileInfos, err := ioutil.ReadDir(r.stmtDir)
 		if err != nil {
@@ -213,8 +215,7 @@ func (r *Renderer) Run() error {
 				stmtInfos = append(stmtInfos, stmtInfo)
 			}
 
-			fileName := "stmt_" + stripSuffix(stmtFileName) + ".go"
-			if err := r.render(manifest.StmtTemplate, fileName, map[string]interface{}{
+			if err := r.render(manifest.Templates.Stmt, "stmt_"+stripSuffix(stmtFileName)+".go", map[string]interface{}{
 				"PackageName": r.outputPkg,
 				"Loader":      r.loader,
 				"DB":          r.db,
@@ -222,12 +223,23 @@ func (r *Renderer) Run() error {
 			}); err != nil {
 				return err
 			}
+			if manifest.Templates.StmtTest != "" {
+				if err := r.render(manifest.Templates.StmtTest, "stmt_"+stripSuffix(stmtFileName)+"_test.go", map[string]interface{}{
+					"PackageName": r.outputPkg,
+					"Loader":      r.loader,
+					"DB":          r.db,
+					"Stmts":       stmtInfos,
+				}); err != nil {
+					return err
+				}
+
+			}
 
 		}
 	}
 
 	// Render extra files.
-	for _, tmplName := range manifest.ExtraTemplates {
+	for _, tmplName := range manifest.Templates.Extra {
 		// Render.
 		fileName := "extra_" + stripSuffix(tmplName) + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{

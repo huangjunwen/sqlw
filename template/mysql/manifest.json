@@ -1,11 +1,13 @@
 {
   "scan_type_map": "scan_type_map.json",
-  "table_tmpl": "table.tmpl",
-  "stmt_tmpl": "stmt.tmpl",
-  "extra_tmpls": [
-    "type.tmpl",
-    "helper.tmpl",
-    "writer_stringer.tmpl",
-    "writer_stringer_pre_1.10.tmpl"
-  ]
+  "tmpl": {
+    "table": "table.tmpl",
+    "stmt": "stmt.tmpl",
+    "extra": [
+      "type.tmpl",
+      "helper.tmpl",
+      "writer_stringer.tmpl",
+      "writer_stringer_pre_1.10.tmpl"
+    ]
+  }
 }
