@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 	"github.com/huangjunwen/sqlw/info"
 )
 
@@ -21,7 +21,7 @@ type VarsInfo struct {
 	values map[string]string
 }
 
-func (d *varDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+func (d *varDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	// Get var name and (optinal) value.
@@ -55,7 +55,7 @@ func (d *varDirective) QueryFragment() (string, error) {
 	return "", nil
 }
 
-func (d *varDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) error {
+func (d *varDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
 	return nil
 }
 

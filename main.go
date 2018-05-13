@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	_ "github.com/huangjunwen/sqlw/dbcontext/drvs/mysql"
+	_ "github.com/huangjunwen/sqlw/datasrc/drivers/mysql"
 
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 	"github.com/huangjunwen/sqlw/render"
 )
 
@@ -53,24 +53,24 @@ func main() {
 		log.Fatalf("Missing -dsn")
 	}
 
-	// Extract database information.
-	dbctx, err := dbcontext.NewDBCtx(driverName, dataSourceName)
+	// Create loader.
+	loader, err := datasrc.NewLoader(driverName, dataSourceName)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer dbctx.Close()
+	defer loader.Close()
 
 	// Choose template.
 	fs := http.FileSystem(nil)
 	if tmplDir != "" {
 		fs = http.Dir(tmplDir)
 	} else {
-		fs = newPrefixFS(dbctx.Name(), FS(false))
+		fs = newPrefixFS(loader.DriverName(), FS(false))
 	}
 
 	// Create Renderer.
 	renderer, err := render.NewRenderer(
-		render.DBCtx(dbctx),
+		render.Loader(loader),
 		render.OutputDir(outputDir),
 		render.OutputPkg(outputPkg),
 		render.StmtDir(stmtDir),

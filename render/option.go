@@ -6,16 +6,16 @@ import (
 	"os"
 	"path"
 
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 )
 
 // Option is used to create Renderer.
 type Option func(*Renderer) error
 
-// DBCtx sets the database context. (required)
-func DBCtx(dbctx *dbcontext.DBCtx) Option {
+// Loader sets the database context. (required)
+func Loader(loader *datasrc.Loader) Option {
 	return func(r *Renderer) error {
-		r.dbctx = dbctx
+		r.loader = loader
 		return nil
 	}
 }

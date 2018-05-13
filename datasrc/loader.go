@@ -21,6 +21,7 @@ type Loader struct {
 	conn           *sql.Conn
 }
 
+// NewLoader creates a new Loader.
 func NewLoader(driverName, dataSourceName string) (*Loader, error) {
 	driver := GetDriver(driverName)
 	if driver == nil {
@@ -77,7 +78,7 @@ func (loader *Loader) Close() {
 }
 
 // LoadQueryResultColumns returns result columns of a query.
-func (loader *Loader) LoadQueryResultColumns(query string) (columns []Column, err error) {
+func (loader *Loader) LoadQueryResultColumns(query string) (columns []*Column, err error) {
 	return loader.driver.LoadQueryResultColumns(loader.conn, query)
 }
 
@@ -87,7 +88,7 @@ func (loader *Loader) LoadTableNames() (tableNames []string, err error) {
 }
 
 // LoadColumns returns columns of a given table.
-func (loader *Loader) LoadColumns(tableName string) (columns []Column, err error) {
+func (loader *Loader) LoadColumns(tableName string) (columns []*Column, err error) {
 	return loader.driver.LoadColumns(loader.conn, tableName)
 }
 

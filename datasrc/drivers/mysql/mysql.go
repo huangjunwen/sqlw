@@ -66,7 +66,7 @@ const (
 	flagUnsigned = 1 << 5
 )
 
-func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string) (columns []datasrc.Column, err error) {
+func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string) (columns []*datasrc.Column, err error) {
 	rows, err := conn.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
@@ -200,7 +200,7 @@ func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string) (
 			bad()
 		}
 
-		columns = append(columns, datasrc.Column{
+		columns = append(columns, &datasrc.Column{
 			ColumnType: columnType,
 			DataType:   dataType,
 		})
@@ -240,7 +240,7 @@ func (driver mysqlDriver) LoadTableNames(conn *sql.Conn) (tableNames []string, e
 	return tableNames, nil
 }
 
-func (driver mysqlDriver) LoadColumns(conn *sql.Conn, tableName string) (columns []datasrc.Column, err error) {
+func (driver mysqlDriver) LoadColumns(conn *sql.Conn, tableName string) (columns []*datasrc.Column, err error) {
 	return driver.LoadQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
 }
 

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 )
 
 // StmtInfo contains information of a statement.
@@ -16,7 +16,7 @@ type StmtInfo struct {
 	locals   map[interface{}]interface{}
 
 	// for SELECT stmt only
-	resultCols []dbcontext.Col
+	resultCols []*datasrc.Column
 }
 
 // NewStmtInfo creates a new StmtInfo from an xml element, example statement xml element:
@@ -27,7 +27,7 @@ type StmtInfo struct {
 //   </select>
 //
 // A statement xml element contains SQL statement fragments and special directives.
-func NewStmtInfo(db *DBInfo, elem *etree.Element) (*StmtInfo, error) {
+func NewStmtInfo(loader *datasrc.Loader, db *DBInfo, elem *etree.Element) (*StmtInfo, error) {
 
 	info := &StmtInfo{
 		locals: map[interface{}]interface{}{},
@@ -48,7 +48,7 @@ func NewStmtInfo(db *DBInfo, elem *etree.Element) (*StmtInfo, error) {
 	}
 
 	// Process it.
-	if err := info.processElem(db, elem); err != nil {
+	if err := info.processElem(loader, db, elem); err != nil {
 		return nil, err
 	}
 
@@ -56,9 +56,8 @@ func NewStmtInfo(db *DBInfo, elem *etree.Element) (*StmtInfo, error) {
 
 }
 
-func (info *StmtInfo) processElem(db *DBInfo, elem *etree.Element) error {
+func (info *StmtInfo) processElem(loader *datasrc.Loader, db *DBInfo, elem *etree.Element) error {
 
-	dbctx := db.DBCtx()
 	// Convert elem to a list of StmtDirective
 	directives := []Directive{}
 
@@ -78,7 +77,7 @@ func (info *StmtInfo) processElem(db *DBInfo, elem *etree.Element) error {
 			directive = factory()
 		}
 
-		if err := directive.Initialize(db, info, t); err != nil {
+		if err := directive.Initialize(loader, db, info, t); err != nil {
 			return err
 		}
 
@@ -104,7 +103,7 @@ func (info *StmtInfo) processElem(db *DBInfo, elem *etree.Element) error {
 		query := strings.TrimSpace(strings.Join(fragments, ""))
 
 		// Query
-		cols, err := dbctx.ExtractQueryResultColumns(query)
+		cols, err := loader.LoadQueryResultColumns(query)
 		if err != nil {
 			return err
 		}
@@ -182,7 +181,7 @@ func (info *StmtInfo) NumResultCol() int {
 }
 
 // ResultCols returns result columns. It returns nil if info is nil.
-func (info *StmtInfo) ResultCols() []dbcontext.Col {
+func (info *StmtInfo) ResultCols() []*datasrc.Column {
 	if info == nil {
 		return nil
 	}

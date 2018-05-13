@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 	"github.com/huangjunwen/sqlw/info"
 )
 
@@ -27,7 +27,7 @@ type ArgsInfo struct {
 	argInfos []*ArgInfo
 }
 
-func (d *argDirective) Initialize(db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+func (d *argDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 
 	// Extract name/type from xml.
@@ -62,7 +62,7 @@ func (d *argDirective) QueryFragment() (string, error) {
 	return "", nil
 }
 
-func (d *argDirective) ProcessQueryResultColumns(resultCols *[]dbcontext.Col) error {
+func (d *argDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
 	return nil
 }
 

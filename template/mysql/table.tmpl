@@ -14,7 +14,7 @@ import (
 
 type {{ $upperTableName }} struct {
 	{{ range $column := .Table.Columns -}}
-	{{ UpperCamel $column.ColumnName }} {{ ScanType $column.ColumnType }} `json:"{{ $column.ColumnName }}" db:"{{ $column.ColumnName }}"`
+	{{ UpperCamel $column.ColumnName }} {{ ScanType $column }} `json:"{{ $column.ColumnName }}" db:"{{ $column.ColumnName }}"`
 	{{ end }}
 }
 

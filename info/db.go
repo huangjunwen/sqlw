@@ -3,12 +3,11 @@ package info
 import (
 	"fmt"
 
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 )
 
 // DBInfo contains information of a database.
 type DBInfo struct {
-	dbctx      *dbcontext.DBCtx
 	tables     []*TableInfo
 	tableNames map[string]int
 }
@@ -30,7 +29,7 @@ type TableInfo struct {
 // ColumnInfo contains information of a column.
 type ColumnInfo struct {
 	table *TableInfo
-	col   dbcontext.Col
+	col   *datasrc.Column
 	pos   int // position in table
 }
 
@@ -53,14 +52,13 @@ type FKInfo struct {
 }
 
 // NewDBInfo extracts information from current database.
-func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
+func NewDBInfo(loader *datasrc.Loader) (*DBInfo, error) {
 
 	db := &DBInfo{
-		dbctx:      dbctx,
 		tableNames: make(map[string]int),
 	}
 
-	tableNames, err := dbctx.ExtractTableNames()
+	tableNames, err := loader.LoadTableNames()
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +74,7 @@ func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 		}
 
 		// Columns info
-		cols, err := dbctx.ExtractColumns(tableName)
+		cols, err := loader.LoadColumns(tableName)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +90,7 @@ func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 		}
 
 		// Auto increment column
-		autoIncColumnName, err := dbctx.ExtractAutoIncColumn(tableName)
+		autoIncColumnName, err := loader.LoadAutoIncColumn(tableName)
 		if err != nil {
 			return nil, err
 		}
@@ -101,13 +99,13 @@ func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 		}
 
 		// Index info
-		indexNames, err := dbctx.ExtractIndexNames(tableName)
+		indexNames, err := loader.LoadIndexNames(tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, indexName := range indexNames {
-			columnNames, isPrimary, isUnique, err := dbctx.ExtractIndex(tableName, indexName)
+			columnNames, isPrimary, isUnique, err := loader.LoadIndex(tableName, indexName)
 			if err != nil {
 				return nil, err
 			}
@@ -133,13 +131,13 @@ func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 		}
 
 		// FK info
-		fkNames, err := dbctx.ExtractFKNames(tableName)
+		fkNames, err := loader.LoadFKNames(tableName)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, fkName := range fkNames {
-			columnNames, refTableName, refColumnNames, err := dbctx.ExtractFK(tableName, fkName)
+			columnNames, refTableName, refColumnNames, err := loader.LoadFK(tableName, fkName)
 			if err != nil {
 				return nil, err
 			}
@@ -172,11 +170,6 @@ func NewDBInfo(dbctx *dbcontext.DBCtx) (*DBInfo, error) {
 // Valid returns true if info != nil.
 func (info *DBInfo) Valid() bool {
 	return info != nil
-}
-
-// DBCtx returns the DBCtx object.
-func (info *DBInfo) DBCtx() *dbcontext.DBCtx {
-	return info.dbctx
 }
 
 // NumTable returns the number of table in the database. It returns 0 if info is nil.
@@ -419,12 +412,12 @@ func (info *ColumnInfo) Nullable() bool {
 	return nullable
 }
 
-// Col returns the underly dbcontext.Col object. It returns nil if info is nil.
-func (info *ColumnInfo) Col() *dbcontext.Col {
+// Col returns the underly datasrc.Column. It returns nil if info is nil.
+func (info *ColumnInfo) Col() *datasrc.Column {
 	if info == nil {
 		return nil
 	}
-	return &info.col
+	return info.col
 }
 
 // Valid returns true if info != nil.

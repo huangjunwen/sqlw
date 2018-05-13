@@ -12,14 +12,14 @@ import (
 	"text/template"
 
 	"github.com/beevik/etree"
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 	"github.com/huangjunwen/sqlw/info"
 )
 
 // Renderer is used for generating code.
 type Renderer struct {
 	// Options
-	dbctx     *dbcontext.DBCtx
+	loader    *datasrc.Loader
 	tmplFS    http.FileSystem
 	stmtDir   string
 	outputDir string
@@ -43,8 +43,8 @@ func NewRenderer(opts ...Option) (*Renderer, error) {
 		}
 	}
 
-	if r.dbctx == nil {
-		return nil, fmt.Errorf("Missing DBContext")
+	if r.loader == nil {
+		return nil, fmt.Errorf("Missing Loader")
 	}
 	if r.tmplFS == nil {
 		return nil, fmt.Errorf("Missing FS")
@@ -124,7 +124,7 @@ func (r *Renderer) Run() error {
 	r.templates = make(map[string]*template.Template)
 
 	// Load db
-	db, err := info.NewDBInfo(r.dbctx)
+	db, err := info.NewDBInfo(r.loader)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (r *Renderer) Run() error {
 	}
 	defer scanTypeMapFile.Close()
 
-	scanTypeMap, err := NewScanTypeMap(r.dbctx, scanTypeMapFile)
+	scanTypeMap, err := NewScanTypeMap(r.loader, scanTypeMapFile)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (r *Renderer) Run() error {
 		}
 		if err := r.render(manifest.TableTemplate, "table_"+table.TableName()+".go", map[string]interface{}{
 			"PackageName": r.outputPkg,
-			"DBCtx":       r.dbctx,
+			"Loader":      r.loader,
 			"DB":          r.db,
 			"Table":       table,
 		}); err != nil {
@@ -206,7 +206,7 @@ func (r *Renderer) Run() error {
 
 			stmtInfos := []*info.StmtInfo{}
 			for _, elem := range doc.ChildElements() {
-				stmtInfo, err := info.NewStmtInfo(r.db, elem)
+				stmtInfo, err := info.NewStmtInfo(r.loader, r.db, elem)
 				if err != nil {
 					return err
 				}
@@ -216,7 +216,7 @@ func (r *Renderer) Run() error {
 			fileName := "stmt_" + stripSuffix(stmtFileName) + ".go"
 			if err := r.render(manifest.StmtTemplate, fileName, map[string]interface{}{
 				"PackageName": r.outputPkg,
-				"DBCtx":       r.dbctx,
+				"Loader":      r.loader,
 				"DB":          r.db,
 				"Stmts":       stmtInfos,
 			}); err != nil {
@@ -232,7 +232,7 @@ func (r *Renderer) Run() error {
 		fileName := "extra_" + stripSuffix(tmplName) + ".go"
 		if err := r.render(tmplName, fileName, map[string]interface{}{
 			"PackageName": r.outputPkg,
-			"DBCtx":       r.dbctx,
+			"Loader":      r.loader,
 			"DB":          r.db,
 		}); err != nil {
 			return err

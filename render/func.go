@@ -7,7 +7,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
+	"github.com/huangjunwen/sqlw/info"
 	"github.com/huangjunwen/sqlw/info/directives"
 )
 
@@ -37,7 +38,7 @@ func camel(s string, upper bool) string {
 
 func (r *Renderer) funcMap() template.FuncMap {
 
-	ctx := r.dbctx
+	loader := r.loader
 
 	return template.FuncMap{
 		"UpperCamel": func(s string) string {
@@ -98,12 +99,21 @@ func (r *Renderer) funcMap() template.FuncMap {
 		"Nullable": func(typ *sql.ColumnType) (bool, error) {
 			nullable, ok := typ.Nullable()
 			if !ok {
-				return false, fmt.Errorf("Nullable test not supported for %+q", ctx.Name())
+				return false, fmt.Errorf("Nullable test not supported for %+q", loader.DriverName())
 			}
 			return nullable, nil
 		},
 
-		"ScanType": func(col *dbcontext.Col) (string, error) {
+		"ScanType": func(v interface{}) (string, error) {
+			col := (*datasrc.Column)(nil)
+			switch c := v.(type) {
+			case *datasrc.Column:
+				col = c
+			case *info.ColumnInfo:
+				col = c.Col()
+			default:
+				return "", fmt.Errorf("Expect column in ScanType but got %T", c)
+			}
 			scanTypes, found := r.scanTypeMap[col.DataType]
 			if !found {
 				return "", fmt.Errorf("Can't get scan type for %+q", col.DataType)
@@ -111,7 +121,7 @@ func (r *Renderer) funcMap() template.FuncMap {
 
 			nullable, ok := col.Nullable()
 			if !ok {
-				return "", fmt.Errorf("Nullable test not supported for driver %+q", ctx.Name())
+				return "", fmt.Errorf("Nullable test not supported for driver %+q", loader.DriverName())
 			}
 
 			if nullable {
@@ -121,8 +131,8 @@ func (r *Renderer) funcMap() template.FuncMap {
 
 		},
 
-		"ExtractArgsInfo":     directives.ExtractArgsInfo,
-		"ExtractVarsInfo":     directives.ExtractVarsInfo,
-		"ExtractWildcardInfo": directives.ExtractWildcardInfo,
+		"ExtractArgsInfo":      directives.ExtractArgsInfo,
+		"ExtractVarsInfo":      directives.ExtractVarsInfo,
+		"ExtractWildcardsInfo": directives.ExtractWildcardsInfo,
 	}
 }

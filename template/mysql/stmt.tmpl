@@ -24,30 +24,30 @@ var (
 
   {{ $stmtName := $stmt.StmtName }}
   {{ $stmtType := $stmt.StmtType }}
-  {{ $argInfo := ExtractArgInfo $stmt }}
-  {{ $varInfo := ExtractVarInfo $stmt }}
-  {{ $wildcardInfo := ExtractWildcardInfo $stmt }}
-  {{ $useTemplate := $varInfo.Has "use_template" }}
+  {{ $args := ExtractArgsInfo $stmt }}
+  {{ $vars := ExtractVarsInfo $stmt }}
+  {{ $wildcards := ExtractWildcardsInfo $stmt }}
+  {{ $useTemplate := $vars.Has "use_template" }}
 
 var (
 {{ if $useTemplate -}}
-  stmtTmpl{{ $stmtName }} = template.Must(template.New("{{ $stmtName }}").Parse({{ Literal $stmt.StmtText }}))
+  stmtTmpl{{ $stmtName }} = template.Must(template.New("{{ $stmtName }}").Parse({{ Literal $stmt.Text }}))
 {{ else -}}
-  stmt{{ $stmtName }} = {{ Literal $stmt.StmtText }} 
+  stmt{{ $stmtName }} = {{ Literal $stmt.Text }} 
 {{ end -}}
 )
 
   {{ if eq $stmtType "SELECT" }}
 
-    {{ $inQuery := $varInfo.Has "in_query" }}
-    {{ $return := $varInfo.Value "return" }}
+    {{ $inQuery := $vars.Has "in_query" }}
+    {{ $return := $vars.Value "return" }}
 
 // {{ $stmtName }}Result is the result of {{ $stmtName }}.
 type {{ $stmtName }}Result struct {
     {{ range $i, $resultColumnName := $stmt.ResultColumnNames -}}
 
       {{ $resultColumnType := $stmt.ResultColumnType $i -}}
-      {{ $wildcardColumn := $wildcardInfo.WildcardColumn $i -}}
+      {{ $wildcardColumn := $wildcards.WildcardColumn $i -}}
 
       {{ if $wildcardColumn.Valid -}}
         {{ if eq $wildcardColumn.Pos 0 -}}
@@ -63,7 +63,7 @@ type {{ $stmtName }}Result struct {
 func (r *{{ $stmtName }}Result) scanFrom(rows *sql.Rows) error {
   return rows.Scan(
 {{ range $i, $resultColumnName := $stmt.ResultColumnNames -}}
-  {{ $wildcardColumn := $wildcardInfo.WildcardColumn $i -}}
+  {{ $wildcardColumn := $wildcards.WildcardColumn $i -}}
   {{ if $wildcardColumn.Valid -}}
   &r.{{ UpperCamel $wildcardColumn.Table.TableName }}.{{ UpperCamel $wildcardColumn.ColumnName }},
   {{ else -}}
@@ -74,18 +74,15 @@ func (r *{{ $stmtName }}Result) scanFrom(rows *sql.Rows) error {
 }
 
 func {{ $stmtName }}(ctx context.Context, q Queryer
-{{- range $i := N $argInfo.NumArg -}}
-  {{- $argName := $argInfo.ArgName $i -}}
-  {{- $argType := $argInfo.ArgType $i -}}
-, {{ $argName }} {{ $argType }}
+{{- range $arg := $args.Args -}}
+, {{ $arg.ArgName }} {{ $arg.ArgType }}
 {{- end -}}
 ) ({{ if or (eq $return "one") (eq $return "first") }}*{{ else }}[]*{{ end }}{{ $stmtName }}Result, error) {
 
   // Data
   data_ := map[string]interface{}{
-{{ range $i := N $argInfo.NumArg -}}
-  {{- $argName := $argInfo.ArgName $i -}}
-    "{{ $argName }}": {{ $argName }},
+{{ range $arg := $args.Args -}}
+    "{{ $arg.ArgName }}": {{ $arg.ArgName }},
 {{- end }}
   }
 

@@ -1,6 +1,7 @@
 {
-  "int":       ["null.Int", "null.Int"],
-  "uint":      ["null.Int", "null.Int"],
+  "float32":   ["null.Float", "null.Float"],
+  "float64":   ["null.Float", "null.Float"],
+  "bool":      ["null.Bool", "null.Bool"],
   "int8":      ["null.Int", "null.Int"],
   "uint8":     ["null.Int", "null.Int"],
   "int16":     ["null.Int", "null.Int"],
@@ -9,10 +10,8 @@
   "uint32":    ["null.Int", "null.Int"],
   "int64":     ["null.Int", "null.Int"],
   "uint64":    ["null.Int", "null.Int"],
-  "float32":   ["null.Float", "null.Float"],
-  "float64":   ["null.Float", "null.Float"],
-  "bool":      ["null.Bool", "null.Bool"],
-  "[]byte":    ["null.String", "null.String"],
-  "string":    ["null.String", "null.String"],
-  "time.Time": ["null.Time", "null.Time"]
+  "time":      ["null.Time", "null.Time"],
+  "bit":       ["null.String", "null.String"],
+  "json":      ["null.String", "null.String"],
+  "string":    ["null.String", "null.String"]
 }

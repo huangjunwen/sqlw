@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/huangjunwen/sqlw/dbcontext"
+	"github.com/huangjunwen/sqlw/datasrc"
 )
 
 // ScanTypeMap maps data type to scan type.
@@ -14,13 +14,13 @@ import (
 type ScanTypeMap map[string][2]string
 
 // NewScanTypeMap loads scan type map from io.Reader.
-func NewScanTypeMap(dbctx *dbcontext.DBCtx, r io.Reader) (ScanTypeMap, error) {
+func NewScanTypeMap(loader *datasrc.Loader, r io.Reader) (ScanTypeMap, error) {
 	ret := ScanTypeMap{}
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(&ret); err != nil {
 		return nil, err
 	}
-	for _, dataType := range dbctx.Drv().DataTypes() {
+	for _, dataType := range loader.DataTypes() {
 		v, ok := ret[dataType]
 		if !ok {
 			// If some data type is missing, filled it with "[]byte"
