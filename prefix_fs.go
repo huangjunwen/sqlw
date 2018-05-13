@@ -18,5 +18,5 @@ func newPrefixFS(prefix string, fs http.FileSystem) *PrefixFS {
 }
 
 func (fs *PrefixFS) Open(name string) (http.File, error) {
-	return fs.fs.Open(path.Join("/template", fs.prefix, name))
+	return fs.fs.Open(path.Join("/templates", fs.prefix, name))
 }

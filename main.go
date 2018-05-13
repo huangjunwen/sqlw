@@ -1,4 +1,4 @@
-//go:generate esc -o template.go template
+//go:generate esc -o templates.go templates
 package main
 
 import (
