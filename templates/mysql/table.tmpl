@@ -4,7 +4,13 @@ import (
   "context"
   "fmt"
 
-	"gopkg.in/guregu/null.v3"
+  "gopkg.in/volatiletech/null.v6"
+  "gopkg.in/volatiletech/null.v6/convert"
+)
+
+var (
+  // Avoid "imported and not used" error
+  _ = convert.ConvertAssign
 )
 
 {{ $tableName := .Table.TableName }}
@@ -77,7 +83,9 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Insert(ctx context.Context, 
     if err != nil {
       return err
     }
-    {{ $lowerTableName }}.{{ $upperAutoIncColumnName }}.SetValid(lastInsertId)
+    if err := convert.ConvertAssign(&{{ $lowerTableName }}.{{ $upperAutoIncColumnName }}, lastInsertId); err != nil {
+      return err
+    }
   }
   {{ end }}
 
@@ -119,4 +127,3 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Update(ctx context.Context, 
 }
 
 {{ end }}
-

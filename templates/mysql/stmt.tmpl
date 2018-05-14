@@ -7,7 +7,7 @@ import (
   "database/sql"
 
   "github.com/jmoiron/sqlx"
-	"gopkg.in/guregu/null.v3"
+  "gopkg.in/volatiletech/null.v6"
 )
 
 var (
@@ -44,9 +44,8 @@ var (
 
 // {{ $stmtName }}Result is the result of {{ $stmtName }}.
 type {{ $stmtName }}Result struct {
-    {{ range $i, $resultColumnName := $stmt.ResultColumnNames -}}
+    {{ range $i, $resultCol := $stmt.ResultCols -}}
 
-      {{ $resultColumnType := $stmt.ResultColumnType $i -}}
       {{ $wildcardColumn := $wildcards.WildcardColumn $i -}}
 
       {{ if $wildcardColumn.Valid -}}
@@ -54,7 +53,7 @@ type {{ $stmtName }}Result struct {
   {{ UpperCamel $wildcardColumn.Table.TableName }} {{ UpperCamel $wildcardColumn.Table.TableName }}
         {{ end -}}
       {{ else -}}
-  {{ UpperCamel $resultColumnName }} {{ ScanType $resultColumnType }}
+  {{ UpperCamel $resultCol.Name }} {{ ScanType $resultCol }}
       {{ end -}}
 
     {{ end -}}
@@ -62,12 +61,12 @@ type {{ $stmtName }}Result struct {
 
 func (r *{{ $stmtName }}Result) scanFrom(rows *sql.Rows) error {
   return rows.Scan(
-{{ range $i, $resultColumnName := $stmt.ResultColumnNames -}}
+{{ range $i, $resultCol := $stmt.ResultCols -}}
   {{ $wildcardColumn := $wildcards.WildcardColumn $i -}}
   {{ if $wildcardColumn.Valid -}}
   &r.{{ UpperCamel $wildcardColumn.Table.TableName }}.{{ UpperCamel $wildcardColumn.ColumnName }},
   {{ else -}}
-  &r.{{ UpperCamel $resultColumnName }},
+  &r.{{ UpperCamel $resultCol.Name }},
   {{ end -}}
 {{ end -}}
   )
