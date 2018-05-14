@@ -5,11 +5,11 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"path"
 	"strings"
 
-	_ "github.com/huangjunwen/sqlw/datasrc/drivers/mysql"
-
 	"github.com/huangjunwen/sqlw/datasrc"
+	_ "github.com/huangjunwen/sqlw/datasrc/drivers/mysql"
 	"github.com/huangjunwen/sqlw/render"
 )
 
@@ -70,7 +70,7 @@ func main() {
 			// tmplDir is starts with '@'
 			prefix = tmplDir[1:]
 		}
-		fs = newPrefixFS(prefix, FS(false))
+		fs = newPrefixFS(path.Join("/templates", prefix), FS(false))
 	}
 
 	// Create Renderer.
