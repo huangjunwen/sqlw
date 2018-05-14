@@ -5,20 +5,12 @@ import (
   "database/sql/driver"
 )
 
-func isNull(val interface{}) bool {
-  if val == nil {
-    return true
+func isNull(val driver.Valuer) bool {
+  v, err := val.Value()
+  if err != nil {
+    panic(err)
   }
-  switch v := val.(type) {
-  case driver.Valuer:
-    x, err := v.Value()
-    if err != nil {
-      panic(err)
-    }
-    return x == nil
-  default:
-    return false
-  }
+  return v == nil
 }
 
 func buildInsert(entry TableEntry) (string, []interface{}) {

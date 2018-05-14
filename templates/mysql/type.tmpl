@@ -3,6 +3,7 @@ package {{ .PackageName }}
 import (
   "context"
   "database/sql"
+  "database/sql/driver"
   "io"
   "fmt"
 )
@@ -30,7 +31,7 @@ type TableEntry interface {
   TableInfo() *TableInfo
 
   // ColumnValue() returns the i-th column's value.
-  ColumnValue(i int) interface{}
+  ColumnValue(i int) driver.Valuer
 }
 
 // TableInfo contains meta information of a table.

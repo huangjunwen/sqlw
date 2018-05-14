@@ -2,6 +2,7 @@ package {{ .PackageName }}
 
 import (
   "context"
+  "database/sql/driver"
   "fmt"
 
   "gopkg.in/volatiletech/null.v6"
@@ -9,7 +10,11 @@ import (
 )
 
 var (
-  // Avoid "imported and not used" error
+  // Suppress "imported and not used" error
+  _ = context.Background
+  _ = driver.IsValue
+  _ = fmt.Printf
+  _ = null.NewBool
   _ = convert.ConvertAssign
 )
 
@@ -49,7 +54,7 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) TableInfo() *TableInfo {
 }
 
 // ColumnValue() returns the i-th column's value.
-func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValue(i int) interface{} {
+func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValue(i int) driver.Valuer {
   switch i {
   {{ range $column := .Table.Columns -}}
   case {{ $column.Pos }}: return {{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}

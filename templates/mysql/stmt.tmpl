@@ -11,13 +11,13 @@ import (
 )
 
 var (
-  // Avoid "imported and not used" errors.
-  _ = fmt.Stringer(nil)
-  _ = context.Context(nil)
-  _ = template.FuncMap(nil)
-  _ = sql.Scanner(nil)
-  _ = sqlx.Execer(nil)
-  _ = null.Int{}
+  // Suppress "imported and not used" errors.
+  _ = fmt.Printf
+  _ = context.Background
+  _ = template.IsTrue
+  _ = sql.Open
+  _ = sqlx.Named
+  _ = null.NewBool
 )
 
 {{ range $stmt := .Stmts }}
