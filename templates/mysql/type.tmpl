@@ -27,10 +27,10 @@ type WriterStringer interface {
 
 // TableEntry is the common interface of an entry of a table.
 type TableEntry interface {
-  // TableInfo() returns table meta information.
+  // TableInfo returns table meta information.
   TableInfo() *TableInfo
 
-  // ColumnValue() returns the i-th column's value.
+  // ColumnValue returns the i-th column's value.
   ColumnValue(i int) driver.Valuer
 }
 
@@ -42,22 +42,22 @@ type TableInfo struct {
   autoIncColumnPos int // -1 if not exists
 }
 
-// TableName() returns the table name.
+// TableName returns the table name.
 func (info *TableInfo) TableName() string {
   return info.tableName
 }
 
-// NumColumn() returns the number of columns of the table.
+// NumColumn returns the number of columns of the table.
 func (info *TableInfo) NumColumn() int {
   return len(info.columnNames)
 }
 
-// ColumnName() returns the i-th column name of the table.
+// ColumnName returns the i-th column name of the table.
 func (info *TableInfo) ColumnName(i int) string {
   return info.columnNames[i]
 }
 
-// PrimaryColumnNames() returns list of column names of primary key.
+// PrimaryColumnNames returns list of column names of primary key.
 func (info *TableInfo) PrimaryColumnNames() []string {
   ret := []string{}
   for _, i := range info.primaryColumnsPos {
@@ -66,7 +66,7 @@ func (info *TableInfo) PrimaryColumnNames() []string {
   return ret
 }
 
-// IsPrimaryColumn() returns true if the i-th column is part of the primary key.
+// IsPrimaryColumn returns true if the i-th column is part of the primary key.
 func (info *TableInfo) IsPrimaryColumn(i int) bool {
   // Using loop is fast enough since the number of primary columns is usually less than 10
   for _, j := range info.primaryColumnsPos {
@@ -77,7 +77,7 @@ func (info *TableInfo) IsPrimaryColumn(i int) bool {
   return false
 }
 
-// AutoIncColumnName() returns the 'auto increment' column name if exists or "".
+// AutoIncColumnName returns the 'auto increment' column name if exists or "".
 func (info *TableInfo) AutoIncColumnName() string {
   if info.autoIncColumnPos < 0 {
     return ""
@@ -85,7 +85,7 @@ func (info *TableInfo) AutoIncColumnName() string {
   return info.columnNames[info.autoIncColumnPos]
 }
 
-// IsAutoIncColumn() returns true if the i-th column is the 'auto increment' column.
+// IsAutoIncColumn returns true if the i-th column is the 'auto increment' column.
 func (info *TableInfo) IsAutoIncColumn(i int) bool {
   if info.autoIncColumnPos < 0 {
     return false

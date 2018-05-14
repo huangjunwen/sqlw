@@ -7,7 +7,7 @@ import (
   "database/sql"
 
   "github.com/jmoiron/sqlx"
-  "gopkg.in/volatiletech/null.v6"
+  null "gopkg.in/volatiletech/null.v6"
 )
 
 var (
@@ -72,14 +72,16 @@ func (r *{{ $stmtName }}Result) scanFrom(rows *sql.Rows) error {
   )
 }
 
+// {{ $stmtName }} ...
 func {{ $stmtName }}(ctx context.Context, q Queryer
 {{- range $arg := $args.Args -}}
 , {{ $arg.ArgName }} {{ $arg.ArgType }}
 {{- end -}}
 ) ({{ if or (eq $return "one") (eq $return "first") }}*{{ else }}[]*{{ end }}{{ $stmtName }}Result, error) {
-
+  // NOTE: Add a nested block to allow identifier shadowing.
+  {
   // Data
-  data_ := map[string]interface{}{
+  data := map[string]interface{}{
 {{ range $arg := $args.Args -}}
     "{{ $arg.ArgName }}": {{ $arg.ArgName }},
 {{- end }}
@@ -87,72 +89,73 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
 
 {{ if $useTemplate }}
   // Template -> named query
-  namedQuery_ := newWriterStringer()
-  if err_ := stmtTmpl{{ $stmtName }}.Execute(namedQuery_, data_); err_ != nil {
-    return nil, err_
+  namedQuery := newWriterStringer()
+  if err := stmtTmpl{{ $stmtName }}.Execute(namedQuery, data); err != nil {
+    return nil, err
   }
-  namedQueryString_ := namedQuery_.String()
+  namedQueryString := namedQuery.String()
 {{ else }}
   // Named query.
-  namedQueryString_ := stmt{{ $stmtName }}
+  namedQueryString := stmt{{ $stmtName }}
 {{ end }}
 
   // Named query -> query
-  query_, args_, err_ := sqlx.Named(namedQueryString_, data_)
-  if err_ != nil {
-    return nil, err_
+  query, args, err := sqlx.Named(namedQueryString, data)
+  if err != nil {
+    return nil, err
   }
 
 {{ if $inQuery }}
   // Expand "in" args.
-  query_, args_, err_ = sqlx.In(query_, args_)
-  if err_ != nil {
-    return nil, err_
+  query, args, err = sqlx.In(query, args)
+  if err != nil {
+    return nil, err
   }
 {{ end }}
 
   // Query
-  rows_, err_ := q.QueryContext(ctx, query_, args_)
-  if err_ != nil {
-    return nil, err_
+  rows, err := q.QueryContext(ctx, query, args)
+  if err != nil {
+    return nil, err
   }
-  defer rows_.Close()
+  defer rows.Close()
 
 {{ if eq $return "first" }}
   // Return first row
-  if !rows_.Next() {
+  if !rows.Next() {
     return nil, nil
   }
-  result_ := &{{ $stmtName }}Result{}
-  if err_ := result_.scanFrom(rows_); err_ != nil {
-    return nil, err_
+  result := &{{ $stmtName }}Result{}
+  if err := result.scanFrom(rows); err != nil {
+    return nil, err
   }
-  return result_, rows_.Err()
+  return result, rows.Err()
 {{ else if eq $return "one" }}
   // Return one row
-  if !rows_.Next() {
+  if !rows.Next() {
     return nil, nil
   }
-  result_ := &{{ $stmtName }}Result{}
-  if err_ := result_.scanFrom(rows_); err_ != nil {
-    return nil, err_
+  result := &{{ $stmtName }}Result{}
+  if err := result.scanFrom(rows); err != nil {
+    return nil, err
   }
-  if rows_.Next() {
+  if rows.Next() {
     return nil, fmt.Errorf("{{ $stmtName }} returns more than one row")
   }
-  return result_, rows_.Err()
+  return result, rows.Err()
 {{ else }}
   // Return rows
-  results_ := []*{{ $stmtName }}Result{}
-  for rows_.Next() {
-    result_ := &{{ $stmtName }}Result{}
-    if err_ := result_.scanFrom(rows_); err_ != nil {
-      return nil, err_
+  results := []*{{ $stmtName }}Result{}
+  for rows.Next() {
+    result := &{{ $stmtName }}Result{}
+    if err := result.scanFrom(rows); err != nil {
+      return nil, err
     }
-    results_ = append(results_, result_)
+    results = append(results, result)
   }
-  return results_, rows_.Err()
+  return results, rows.Err()
 {{ end }}
+  }
 }
 
   {{ else if eq $stmtType "DELETE" }}

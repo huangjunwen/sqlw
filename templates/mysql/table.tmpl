@@ -5,7 +5,7 @@ import (
   "database/sql/driver"
   "fmt"
 
-  "gopkg.in/volatiletech/null.v6"
+  null "gopkg.in/volatiletech/null.v6"
   "gopkg.in/volatiletech/null.v6/convert"
 )
 
@@ -23,6 +23,7 @@ var (
 {{ $upperTableName := UpperCamel .Table.TableName }}
 {{ $primary := .Table.Primary }}
 
+// {{ $upperTableName }} represents a row entry of table "{{ $tableName }}".
 type {{ $upperTableName }} struct {
 	{{ range $column := .Table.Columns -}}
 	{{ UpperCamel $column.ColumnName }} {{ ScanType $column }} `json:"{{ $column.ColumnName }}" db:"{{ $column.ColumnName }}"`
@@ -48,12 +49,12 @@ var (
   }
 )
 
-// TableInfo() returns table meta information.
+// TableInfo returns table meta information.
 func ({{ $lowerTableName }} *{{ $upperTableName }}) TableInfo() *TableInfo {
   return {{ $lowerTableName }}TableInfo
 }
 
-// ColumnValue() returns the i-th column's value.
+// ColumnValue returns the i-th column's value.
 func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValue(i int) driver.Valuer {
   switch i {
   {{ range $column := .Table.Columns -}}
@@ -64,14 +65,14 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValue(i int) driver.Va
   }
 }
 
-// Copy() copy an entry.
+// Copy a row entry.
 func ({{ $lowerTableName }} *{{ $upperTableName }}) Copy() *{{ $upperTableName }} {
   ret := &{{ $upperTableName }}{}
   *ret = *{{ $lowerTableName }}
   return ret
 }
 
-// Insert() insert all non-null values into `{{ $tableName  }}` table.
+// Insert all non-null values into table "{{ $tableName }}".
 func ({{ $lowerTableName }} *{{ $upperTableName }}) Insert(ctx context.Context, e Execer) error {
   query, args := buildInsert({{ $lowerTableName }})
   r, err := e.ExecContext(ctx, query, args...)
@@ -99,10 +100,10 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Insert(ctx context.Context, 
 
 {{ if $primary.Valid }}
 
-// Update() updates columns that have different values. Return true if the row is successfully updated.
+// Update columns that have different values. Return true if the row is successfully updated.
 // In this case values in `{{ $lowerTableName }}` will be updated to `new{{ $upperTableName }}` as well.
 //
-// Update() returns false if there is an error occured or no matched row updated.
+// Update returns false if there is an error occured or no matched row updated.
 // 
 // NOTE: `{{ $lowerTableName }}` and `new{{ $upperTableName }}` must have same not-null primary key, otherwise an error will be returned.
 func ({{ $lowerTableName }} *{{ $upperTableName }}) Update(ctx context.Context, e Execer, new{{ $upperTableName }} *{{ $upperTableName }}) (updated bool, err error) {
