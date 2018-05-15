@@ -26,7 +26,8 @@ var (
 // {{ $upperTableName }} represents a row entry of table "{{ $tableName }}".
 type {{ $upperTableName }} struct {
 	{{ range $column := .Table.Columns -}}
-	{{ UpperCamel $column.ColumnName }} {{ ScanType $column }} `json:"{{ $column.ColumnName }}" db:"{{ $column.ColumnName }}"`
+  {{ $col := $column.Col -}}
+  {{ UpperCamel $column.ColumnName }} {{ ScanType $column }} `json:"{{ $column.ColumnName }}" db:"{{ $column.ColumnName }}"` // {{ if $col.HasNullable }}{{ if not $col.Nullable }}NOT{{ else }}   {{ end }} NULL{{ end }}
 	{{ end }}
 }
 

@@ -114,7 +114,7 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
 {{ end }}
 
   // Query
-  rows, err := q.QueryContext(ctx, query, args)
+  rows, err := q.QueryContext(ctx, query, args...)
   if err != nil {
     return nil, err
   }
