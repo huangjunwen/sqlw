@@ -12,7 +12,7 @@ import (
 // Option is used to create Renderer.
 type Option func(*Renderer) error
 
-// Loader sets the database context. (required)
+// Loader sets the loader. (required)
 func Loader(loader *datasrc.Loader) Option {
 	return func(r *Renderer) error {
 		r.loader = loader

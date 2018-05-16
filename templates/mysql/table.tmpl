@@ -73,7 +73,7 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Copy() *{{ $upperTableName }
   return ret
 }
 
-// Insert all non-null values into table "{{ $tableName }}".
+// Insert all not-null values into table "{{ $tableName }}".
 func ({{ $lowerTableName }} *{{ $upperTableName }}) Insert(ctx context.Context, e Execer) error {
   query, args := buildInsert({{ $lowerTableName }})
   r, err := e.ExecContext(ctx, query, args...)
@@ -101,18 +101,18 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Insert(ctx context.Context, 
 
 {{ if $primary.Valid }}
 
-// Update columns that have different values. Return true if the row is successfully updated.
-// In this case values in `{{ $lowerTableName }}` will be updated to `new{{ $upperTableName }}` as well.
+// Update the entry. Only columns that have different values will be updated. Primary key column(s) must have equal not-null value(s) for both entries, otherwise an error will be returned. 
 //
-// Update returns false if there is an error occured or no matched row updated.
-// 
-// NOTE: `{{ $lowerTableName }}` and `new{{ $upperTableName }}` must have same not-null primary key, otherwise an error will be returned.
+// It returns true if the row is successfully updated. In this case values in `{{ $lowerTableName }}` will be updated to `new{{ $upperTableName }}` as well.
+//
+// It returns false if there is an error occured or no matched row.
 func ({{ $lowerTableName }} *{{ $upperTableName }}) Update(ctx context.Context, e Execer, new{{ $upperTableName }} *{{ $upperTableName }}) (updated bool, err error) {
   query, args, err := buildUpdate({{ $lowerTableName }}, new{{ $upperTableName }})
   if err != nil {
     return false, err
   }
 
+  // Execute.
   r, err := e.ExecContext(ctx, query, args...)
   if err != nil {
     return false, err
@@ -132,5 +132,61 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Update(ctx context.Context, 
   *{{ $lowerTableName }} = *new{{ $upperTableName }}
   return true, nil
 }
+
+// Delete the entry. Primary key column(s) must have not-null value(s), otherwise an error will be returned.
+//
+// It returns true if the entry is successfully deleted.
+//
+// It returns false if there is an error occured or no matched row.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) Delete(ctx context.Context, e Execer) (deleted bool, err error) {
+  // Check primary key column(s).
+  {{- range $column := $primary.Columns }}
+  if isNull({{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}) {
+    return false, fmt.Errorf("Primary column `{{ $column.ColumnName }}` of `{{ $tableName  }}`is null")
+  }
+  {{- end }}
+
+  // Execute.
+  r, err := e.ExecContext(ctx, "DELETE FROM `{{ $tableName }}` WHERE {{ range $i, $column := $primary.Columns }}{{ if ne $i 0 }} AND {{ end }}`{{ $column.ColumnName }}`=?{{ end }}"{{ range $column := $primary.Columns }}, {{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}{{ end }} )
+  if err != nil {
+    return false, err
+  }
+
+  rowsAffected, err := r.RowsAffected()
+  if err != nil {
+    return false, err
+  }
+
+  // No match row deleted.
+  if rowsAffected <= 0 {
+    return false, nil
+  }
+
+  return true, nil
+}
+
+
+// Reload the entry. Primary key column(s) must have not-null value(s), otherwise an error will be returned.
+//
+// It returns no error if a matched entry is reloaded.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) Reload(ctx context.Context, q Queryer) error {
+  // Check primary key column(s).
+  {{- range $column := $primary.Columns }}
+  if isNull({{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}) {
+    return fmt.Errorf("Primary column `{{ $column.ColumnName }}` of `{{ $tableName  }}`is null")
+  }
+  {{- end }}
+
+  // Query.
+  row := q.QueryRowContext(ctx, "SELECT {{ range $i, $column := .Table.Columns }}{{ if ne $i 0 }}, {{ end }}`{{ $column.ColumnName }}`{{ end }} FROM `{{ $tableName }} WHERE {{ range $i, $column := $primary.Columns }}{{ if ne $i 0 }} AND {{ end }}`{{ $column.ColumnName }}`=?{{ end }}"{{ range $column := $primary.Columns }}, {{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}{{ end }})
+
+  // Scan and return.
+  return row.Scan(
+  {{ range $column := .Table.Columns -}}
+    &{{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }},
+  {{ end }}
+  )
+}
+
 
 {{ end }}
