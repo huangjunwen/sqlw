@@ -117,6 +117,9 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
     "{{ $arg.ArgName }}": {{ $arg.ArgName }},
 {{- end }}
   })
+  if err != nil {
+    return nil, err
+  }
 
   // Query
   rows, err := q.QueryContext(ctx, query, args...)
@@ -180,6 +183,9 @@ func {{ $stmtName }}(ctx context.Context, e Execer
     "{{ $arg.ArgName }}": {{ $arg.ArgName }},
 {{- end }}
   })
+  if err != nil {
+    return 0, err
+  }
 
   // Exec
   result, err := e.ExecContext(ctx, query, args...)
