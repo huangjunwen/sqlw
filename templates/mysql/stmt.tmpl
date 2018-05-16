@@ -28,6 +28,7 @@ var (
   {{ $vars := ExtractVarsInfo $stmt }}
   {{ $wildcards := ExtractWildcardsInfo $stmt }}
   {{ $useTemplate := $vars.Has "use_template" }}
+  {{ $inQuery := $vars.Has "in_query" }}
 
 var (
 {{ if $useTemplate -}}
@@ -37,9 +38,38 @@ var (
 {{ end -}}
 )
 
+func build{{ $stmtName }}Query(data map[string]interface{}) (string, []interface{}, error) {
+{{ if $useTemplate }}
+  // Template -> named query
+  namedQuery := newWriterStringer()
+  if err := stmtTmpl{{ $stmtName }}.Execute(namedQuery, data); err != nil {
+    return "", nil, err
+  }
+  namedQueryString := namedQuery.String()
+{{ else }}
+  // Named query.
+  namedQueryString := stmt{{ $stmtName }}
+{{ end }}
+
+  // Named query -> query
+  query, args, err := sqlx.Named(namedQueryString, data)
+  if err != nil {
+    return "", nil, err
+  }
+
+{{ if $inQuery }}
+  // Expand "in" args.
+  query, args, err = sqlx.In(query, args)
+  if err != nil {
+    return "", nil, err
+  }
+{{ end }}
+
+  return query, args, nil
+}
+
   {{ if eq $stmtType "SELECT" }}
 
-    {{ $inQuery := $vars.Has "in_query" }}
     {{ $return := $vars.Value "return" }}
 
 // {{ $stmtName }}Result is the result of {{ $stmtName }}.
@@ -80,38 +110,13 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
 ) ({{ if or (eq $return "one") (eq $return "first") }}*{{ else }}[]*{{ end }}{{ $stmtName }}Result, error) {
   // NOTE: Add a nested block to allow identifier shadowing.
   {
-  // Data
-  data := map[string]interface{}{
+
+  // Build query
+  query, args, err := build{{ $stmtName }}Query(map[string]interface{}{
 {{ range $arg := $args.Args -}}
     "{{ $arg.ArgName }}": {{ $arg.ArgName }},
 {{- end }}
-  }
-
-{{ if $useTemplate }}
-  // Template -> named query
-  namedQuery := newWriterStringer()
-  if err := stmtTmpl{{ $stmtName }}.Execute(namedQuery, data); err != nil {
-    return nil, err
-  }
-  namedQueryString := namedQuery.String()
-{{ else }}
-  // Named query.
-  namedQueryString := stmt{{ $stmtName }}
-{{ end }}
-
-  // Named query -> query
-  query, args, err := sqlx.Named(namedQueryString, data)
-  if err != nil {
-    return nil, err
-  }
-
-{{ if $inQuery }}
-  // Expand "in" args.
-  query, args, err = sqlx.In(query, args)
-  if err != nil {
-    return nil, err
-  }
-{{ end }}
+  })
 
   // Query
   rows, err := q.QueryContext(ctx, query, args...)
@@ -158,14 +163,39 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
   }
 }
 
-  {{ else if eq $stmtType "DELETE" }}
-
-  {{ else if eq $stmtType "UPDATE" }}
-
-  {{ else if eq $stmtType "INSERT" }}
-
-
   {{ else }}
+
+// {{ $stmtName }} ...
+func {{ $stmtName }}(ctx context.Context, e Execer
+{{- range $arg := $args.Args -}}
+, {{ $arg.ArgName }} {{ $arg.ArgType }}
+{{- end -}}
+) (rowsAffected int64, err error) {
+  // NOTE: Add a nested block to allow identifier shadowing.
+  {
+
+  // Build query
+  query, args, err := build{{ $stmtName }}Query(map[string]interface{}{
+{{ range $arg := $args.Args -}}
+    "{{ $arg.ArgName }}": {{ $arg.ArgName }},
+{{- end }}
+  })
+
+  // Exec
+  result, err := e.ExecContext(ctx, query, args...)
+  if err != nil {
+    return 0, err
+  }
+
+  rowsAffected, err := result.RowsAffected()
+  if err != nil {
+    return 0, err
+  }
+  
+  return rowsAffected, nil
+
+  }
+}
 
   {{ end }}
 
