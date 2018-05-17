@@ -54,16 +54,16 @@ func (d *argDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt 
 	return nil
 }
 
-func (d *argDirective) Fragment() (string, error) {
-	return "", nil
-}
-
 func (d *argDirective) QueryFragment() (string, error) {
 	return "", nil
 }
 
 func (d *argDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
 	return nil
+}
+
+func (d *argDirective) Fragment() (string, error) {
+	return "", nil
 }
 
 // ArgName returns the argument's name.

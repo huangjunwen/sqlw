@@ -47,16 +47,16 @@ func (d *varDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt 
 	return nil
 }
 
-func (d *varDirective) Fragment() (string, error) {
-	return "", nil
-}
-
 func (d *varDirective) QueryFragment() (string, error) {
 	return "", nil
 }
 
 func (d *varDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
 	return nil
+}
+
+func (d *varDirective) Fragment() (string, error) {
+	return "", nil
 }
 
 // Valid returns true if info != nil

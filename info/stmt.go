@@ -3,6 +3,7 @@ package info
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/datasrc"
@@ -21,10 +22,10 @@ type StmtInfo struct {
 
 // NewStmtInfo creates a new StmtInfo from an xml element, example statement xml element:
 //
-//   <select name="BlogByUser">
+//   <stmt name="BlogByUser">
 //     <arg name="userId" type="int" />
 //     SELECT <wildcard table="blog" /> FROM blog WHERE user_id=<replace with=":userId">1</replace>
-//   </select>
+//   </stmt>
 //
 // A statement xml element contains SQL statement fragments and special directives.
 func NewStmtInfo(loader *datasrc.Loader, db *DBInfo, elem *etree.Element) (*StmtInfo, error) {
@@ -33,18 +34,14 @@ func NewStmtInfo(loader *datasrc.Loader, db *DBInfo, elem *etree.Element) (*Stmt
 		locals: map[interface{}]interface{}{},
 	}
 
-	// Element's tag as type
-	info.stmtType = strings.ToUpper(elem.Tag)
-	switch info.stmtType {
-	case "SELECT", "UPDATE", "INSERT", "DELETE":
-	default:
-		return nil, fmt.Errorf("Unknown statement type %+q", info.stmtType)
+	if elem.Tag != "stmt" {
+		return nil, fmt.Errorf("Expect <stmt> but got <%s>", elem.Tag)
 	}
 
 	// Name attribute
 	info.stmtName = elem.SelectAttrValue("name", "")
 	if info.stmtName == "" {
-		return nil, fmt.Errorf("Missing 'name' attribute of <%q>", info.stmtType)
+		return nil, fmt.Errorf("Missing 'name' attribute of <%s>", info.stmtType)
 	}
 
 	// Process it.
@@ -85,9 +82,10 @@ func (info *StmtInfo) processElem(loader *datasrc.Loader, db *DBInfo, elem *etre
 
 	}
 
-	if info.StmtType() == "SELECT" {
+	// Construct query.
+	query := ""
 
-		// QueryFragment
+	{
 		fragments := []string{}
 
 		for _, directive := range directives {
@@ -100,9 +98,31 @@ func (info *StmtInfo) processElem(loader *datasrc.Loader, db *DBInfo, elem *etre
 
 		}
 
-		query := strings.TrimSpace(strings.Join(fragments, ""))
+		query = strings.TrimSpace(strings.Join(fragments, ""))
 
-		// Query
+	}
+
+	// Determine statement type.
+	{
+
+		sp := strings.IndexFunc(query, unicode.IsSpace)
+		if sp < 0 {
+			return fmt.Errorf("Can't determine statement type for %+q", query)
+		}
+		verb := strings.ToUpper(query[:sp])
+		switch verb {
+		case "SELECT", "INSERT", "UPDATE", "DELETE", "REPLACE":
+		default:
+			return fmt.Errorf("Not supported statement type %+q", verb)
+		}
+
+		info.stmtType = verb
+
+	}
+
+	// If it's a SELECT statement, load query result columns.
+	if info.StmtType() == "SELECT" {
+
 		cols, err := loader.LoadQueryResultColumns(query)
 		if err != nil {
 			return err
@@ -115,25 +135,28 @@ func (info *StmtInfo) processElem(loader *datasrc.Loader, db *DBInfo, elem *etre
 			}
 		}
 
-		// Save
 		info.resultCols = cols
 
 	}
 
-	// Fragment()
-	fragments := []string{}
+	// Final text
+	{
 
-	for _, directive := range directives {
+		fragments := []string{}
 
-		fragment, err := directive.Fragment()
-		if err != nil {
-			return err
+		for _, directive := range directives {
+
+			fragment, err := directive.Fragment()
+			if err != nil {
+				return err
+			}
+			fragments = append(fragments, fragment)
+
 		}
-		fragments = append(fragments, fragment)
+
+		info.text = strings.TrimSpace(strings.Join(fragments, ""))
 
 	}
-
-	info.text = strings.TrimSpace(strings.Join(fragments, ""))
 
 	return nil
 }

@@ -95,16 +95,16 @@ func (d *wildcardDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, 
 
 }
 
-func (d *wildcardDirective) Fragment() (string, error) {
-	return d.expansion(), nil
-}
-
 func (d *wildcardDirective) QueryFragment() (string, error) {
 	return d.info.queryFragment(d), nil
 }
 
 func (d *wildcardDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
 	return d.info.processQueryResultColumns(resultCols)
+}
+
+func (d *wildcardDirective) Fragment() (string, error) {
+	return d.expansion(), nil
 }
 
 func newWildcardsInfo(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo) *WildcardsInfo {

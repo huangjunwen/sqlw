@@ -10,19 +10,18 @@ type Directive interface {
 	// Initialize the directive.
 	Initialize(loader *datasrc.Loader, db *DBInfo, stmt *StmtInfo, tok etree.Token) error
 
-	// Fragment returns the final text fragment of this directive.
-	Fragment() (string, error)
-
-	// QueryFragment returns the text fragment of this directive for SELECT query to obtain result column information.
-	// This can be different from Fragment.
-	//
-	// NOTE: If the directive is not for SELECT query, an error should be returned.
+	// QueryFragment returns the fragment of this directive to construct a valid SQL query.
+	// The SQL query is used to determine statement type, to obtain result column information for SELECT query,
+	// and optionally to check SQL correctness.
 	QueryFragment() (string, error)
 
-	// ProcessQueryResult processes the result column information (in place) of SELECT query.
-	//
-	// NOTE: If the directive is not for SELECT query, an error should be returned.
+	// ProcessQueryResultColumns processes the result column information (in place) for SELECT query.
+	// This method is called only when the query is a SELECT.
 	ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error
+
+	// Fragment returns the final fragment of this directive to construct a final statement text.
+	// The statement text is no need to be a valid SQL query. It is up to the template to determin how to use it.
+	Fragment() (string, error)
 }
 
 // textDirective is a special directive.
@@ -35,16 +34,16 @@ func (d *textDirective) Initialize(loader *datasrc.Loader, db *DBInfo, stmt *Stm
 	return nil
 }
 
-func (d *textDirective) Fragment() (string, error) {
-	return d.data, nil
-}
-
 func (d *textDirective) QueryFragment() (string, error) {
 	return d.data, nil
 }
 
 func (d *textDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
 	return nil
+}
+
+func (d *textDirective) Fragment() (string, error) {
+	return d.data, nil
 }
 
 var (
