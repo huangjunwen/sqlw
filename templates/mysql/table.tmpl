@@ -2,6 +2,7 @@ package {{ .PackageName }}
 
 import (
   "context"
+  "database/sql"
   "database/sql/driver"
   "fmt"
 
@@ -55,11 +56,22 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) TableInfo() *TableInfo {
   return {{ $lowerTableName }}TableInfo
 }
 
-// ColumnValue returns the i-th column's value.
-func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValue(i int) driver.Valuer {
+// ColumnValuer returns the i-th column as a Valuer.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnValuer(i int) driver.Valuer {
   switch i {
   {{ range $column := .Table.Columns -}}
   case {{ $column.Pos }}: return {{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}
+  {{ end -}}
+  default:
+    panic(fmt.Errorf("Bad column pos %d for table {{ $tableName }}", i))
+  }
+}
+
+// ColumnValuer returns the i-th column as a Scanner.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) ColumnScanner(i int) sql.Scanner {
+  switch i {
+  {{ range $column := .Table.Columns -}}
+  case {{ $column.Pos }}: return &{{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}
   {{ end -}}
   default:
     panic(fmt.Errorf("Bad column pos %d for table {{ $tableName }}", i))
@@ -168,24 +180,37 @@ func ({{ $lowerTableName }} *{{ $upperTableName }}) Delete(ctx context.Context, 
 
 // Reload the entry. Primary key column(s) must have not-null value(s), otherwise an error will be returned.
 //
-// It returns no error if a matched entry is reloaded.
-func ({{ $lowerTableName }} *{{ $upperTableName }}) Reload(ctx context.Context, q Queryer) error {
+// It returns true if the entry is successfully reloaded.
+//
+// It returns false if there is an error occured or no matched row.
+func ({{ $lowerTableName }} *{{ $upperTableName }}) Reload(ctx context.Context, q Queryer) (reloaded bool, err error) {
   // Check primary key column(s).
   {{- range $column := $primary.Columns }}
   if isNull({{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}) {
-    return fmt.Errorf("Primary column `{{ $column.ColumnName }}` of `{{ $tableName  }}`is null")
+    return false, fmt.Errorf("Primary column `{{ $column.ColumnName }}` of `{{ $tableName  }}`is null")
   }
   {{- end }}
 
   // Query.
   row := q.QueryRowContext(ctx, "SELECT {{ range $i, $column := .Table.Columns }}{{ if ne $i 0 }}, {{ end }}`{{ $column.ColumnName }}`{{ end }} FROM `{{ $tableName }} WHERE {{ range $i, $column := $primary.Columns }}{{ if ne $i 0 }} AND {{ end }}`{{ $column.ColumnName }}`=?{{ end }}"{{ range $column := $primary.Columns }}, {{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }}{{ end }})
 
-  // Scan and return.
-  return row.Scan(
+  // Scan.
+  err = row.Scan(
   {{ range $column := .Table.Columns -}}
     &{{ $lowerTableName }}.{{ UpperCamel $column.ColumnName }},
   {{ end }}
   )
+
+  // Check error.
+  if err != nil {
+    if err == sql.ErrNoRows {
+      return false, nil
+    }
+    return false, err
+  }
+
+  return true, nil
+
 }
 
 

@@ -20,7 +20,7 @@ type Directive interface {
 	ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error
 
 	// Fragment returns the final fragment of this directive to construct a final statement text.
-	// The statement text is no need to be a valid SQL query. It is up to the template to determin how to use it.
+	// The statement text is no need to be a valid SQL query. It is up to the template to determine how to use it.
 	Fragment() (string, error)
 }
 

@@ -21,7 +21,7 @@ func buildInsert(entry TableEntry) (string, []interface{}) {
   args := []interface{}{}
 
   for i:=0; i<info.NumColumn(); i++ {
-    val := entry.ColumnValue(i)
+    val := entry.ColumnValuer(i)
     if isNull(val) {
       continue
     }
@@ -55,8 +55,8 @@ func buildUpdate(entry, newEntry TableEntry) (string, []interface{}, error) {
   for i:=0; i<info.NumColumn(); i++ {
     
     columnName := info.ColumnName(i)
-    val := entry.ColumnValue(i)
-    newVal := entry.ColumnValue(i)
+    val := entry.ColumnValuer(i)
+    newVal := entry.ColumnValuer(i)
 
     // --- Normal column ---
     if !info.IsPrimaryColumn(i) {

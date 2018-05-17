@@ -30,15 +30,18 @@ type TableEntry interface {
   // TableInfo returns table meta information.
   TableInfo() *TableInfo
 
-  // ColumnValue returns the i-th column's value.
-  ColumnValue(i int) driver.Valuer
+  // ColumnValuer returns the i-th column as a Valuer.
+  ColumnValuer(i int) driver.Valuer
+
+  // ColumnScanner returns the i-th column as a Scanner.
+  ColumnScanner(i int) sql.Scanner
 }
 
 // TableInfo contains meta information of a table.
 type TableInfo struct {
   tableName string
   columnNames []string
-  primaryColumnsPos []int
+  primaryColumnsPos []int // len(primaryColumnsPos) == 0 if not exists
   autoIncColumnPos int // -1 if not exists
 }
 
