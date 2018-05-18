@@ -12,7 +12,7 @@ type Column struct {
 	// Name is name of the result column.
 	Name string
 
-	// ScanType is the GO type suitable for scanning into.
+	// ScanType is the go type suitable for scanning into.
 	ScanType reflect.Type
 
 	// DatabaseTypeName is the database system name of the column type. (e.g. "VARCHAR", "INT")
