@@ -14,9 +14,9 @@ import (
 
 // WildcardsInfo contain wildcard information in a statement.
 type WildcardsInfo struct {
-	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
+	// len(wildcardColumns) == len(wildcardNames) == len(resultColumns)
 	wildcardColumns []*infos.ColumnInfo
-	wildcardAliases []string
+	wildcardNames   []string
 
 	loader          *datasrc.Loader
 	db              *infos.DBInfo
@@ -151,7 +151,7 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 
 			// Not in wildcard mode
 			info.wildcardColumns = append(info.wildcardColumns, nil)
-			info.wildcardAliases = append(info.wildcardAliases, "")
+			info.wildcardNames = append(info.wildcardNames, "")
 
 		} else {
 
@@ -162,7 +162,7 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 			}
 			curWildcardColPos += 1
 			info.wildcardColumns = append(info.wildcardColumns, wildcardColumn)
-			info.wildcardAliases = append(info.wildcardAliases, curWildcard.tableAlias)
+			info.wildcardNames = append(info.wildcardNames, curWildcard.name())
 
 		}
 
@@ -179,7 +179,7 @@ func (info *WildcardsInfo) Valid() bool {
 }
 
 // WildcardColumn returns the table column for the i-th result column
-// if it is from a <wildcard> directive and nil otherwise.
+// if it is from a <wc> directive and nil otherwise.
 func (info *WildcardsInfo) WildcardColumn(i int) *infos.ColumnInfo {
 	if info == nil {
 		return nil
@@ -190,16 +190,16 @@ func (info *WildcardsInfo) WildcardColumn(i int) *infos.ColumnInfo {
 	return info.wildcardColumns[i]
 }
 
-// WildcardAlias returns the table alias name for the i-th result column
-// if it is from a <wildcard> directive or "" otherwise.
-func (info *WildcardsInfo) WildcardAlias(i int) string {
+// WildcardName returns the wildcard name (table name or alias) for the i-th result column
+// if it is from a <wc> directive or "" otherwise.
+func (info *WildcardsInfo) WildcardName(i int) string {
 	if info == nil {
 		return ""
 	}
-	if i < 0 || i >= len(info.wildcardAliases) {
+	if i < 0 || i >= len(info.wildcardNames) {
 		return ""
 	}
-	return info.wildcardAliases[i]
+	return info.wildcardNames[i]
 }
 
 func (d *wcDirective) Initialize(loader *datasrc.Loader, db *infos.DBInfo, stmt *infos.StmtInfo, tok etree.Token) error {
@@ -227,11 +227,20 @@ func (d *wcDirective) Initialize(loader *datasrc.Loader, db *infos.DBInfo, stmt 
 	// Optinally alias
 	as := elem.SelectAttrValue("as", "")
 
-	// Set fields and add to WildcardsInfo
+	// Set fields
 	d.info = info
 	d.table = table
 	d.tableAlias = as
 	d.idx = len(info.directives)
+
+	// Check wildcard name uniqueness
+	for _, directive := range info.directives {
+		if d.name() == directive.name() {
+			return fmt.Errorf("Duplicated wildcard name %+q, please use an alternative alias", d.name())
+		}
+	}
+
+	// Add to WildcardsInfo
 	info.directives = append(info.directives, d)
 
 	return nil
@@ -271,6 +280,13 @@ func (d *wcDirective) expansion() string {
 
 	return strings.Join(fragments, "")
 
+}
+
+func (d *wcDirective) name() string {
+	if d.tableAlias != "" {
+		return d.tableAlias
+	}
+	return d.table.TableName()
 }
 
 func init() {

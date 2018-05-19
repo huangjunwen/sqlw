@@ -76,11 +76,12 @@ func build{{ $stmtName }}Query(data map[string]interface{}) (string, []interface
 type {{ $stmtName }}Result struct {
     {{ range $i, $resultCol := $stmt.ResultCols -}}
 
+      {{ $wildcardName := $wildcards.WildcardName $i -}}
       {{ $wildcardColumn := $wildcards.WildcardColumn $i -}}
 
       {{ if $wildcardColumn.Valid -}}
         {{ if eq $wildcardColumn.Pos 0 -}}
-  {{ UpperCamel $wildcardColumn.Table.TableName }} {{ UpperCamel $wildcardColumn.Table.TableName }}
+  {{ UpperCamel $wildcardName }} {{ UpperCamel $wildcardColumn.Table.TableName }}
         {{ end -}}
       {{ else -}}
   {{ UpperCamel $resultCol.Name }} {{ ScanType $resultCol }}
@@ -92,9 +93,10 @@ type {{ $stmtName }}Result struct {
 func (r *{{ $stmtName }}Result) scanFrom(rows *sql.Rows) error {
   return rows.Scan(
 {{ range $i, $resultCol := $stmt.ResultCols -}}
+  {{ $wildcardName := $wildcards.WildcardName $i -}}
   {{ $wildcardColumn := $wildcards.WildcardColumn $i -}}
   {{ if $wildcardColumn.Valid -}}
-  &r.{{ UpperCamel $wildcardColumn.Table.TableName }}.{{ UpperCamel $wildcardColumn.ColumnName }},
+  &r.{{ UpperCamel $wildcardName }}.{{ UpperCamel $wildcardColumn.ColumnName }},
   {{ else -}}
   &r.{{ UpperCamel $resultCol.Name }},
   {{ end -}}
@@ -115,7 +117,7 @@ func {{ $stmtName }}(ctx context.Context, q Queryer
   query, args, err := build{{ $stmtName }}Query(map[string]interface{}{
 {{ range $arg := $args.Args -}}
     "{{ $arg.ArgName }}": {{ $arg.ArgName }},
-{{- end }}
+{{ end -}}
   })
   if err != nil {
     return nil, err
