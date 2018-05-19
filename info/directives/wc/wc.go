@@ -1,4 +1,4 @@
-package directives
+package dwc
 
 import (
 	"crypto/rand"
@@ -12,6 +12,20 @@ import (
 	"github.com/huangjunwen/sqlw/info"
 )
 
+// WildcardsInfo contain wildcard information in a statement.
+type WildcardsInfo struct {
+	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
+	wildcardColumns []*info.ColumnInfo
+	wildcardAliases []string
+
+	loader          *datasrc.Loader
+	db              *info.DBInfo
+	stmt            *info.StmtInfo
+	marker          string
+	directives      []*wildcardDirective
+	resultProcessed bool
+}
+
 type wildcardDirective struct {
 	info       *WildcardsInfo
 	table      *info.TableInfo
@@ -19,92 +33,19 @@ type wildcardDirective struct {
 	idx        int // the idx-th wildcard directive in the statement
 }
 
-type wildcardLocalsKeyType struct{}
+type localsKeyType struct{}
 
 var (
-	wildcardLocalsKey = wildcardLocalsKeyType{}
+	localsKey = localsKeyType{}
 )
 
-// WildcardsInfo contain wildcard information in a statement.
-type WildcardsInfo struct {
-	loader          *datasrc.Loader
-	db              *info.DBInfo
-	stmt            *info.StmtInfo
-	marker          string
-	directives      []*wildcardDirective
-	resultProcessed bool
-
-	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
-	wildcardColumns []*info.ColumnInfo
-	wildcardAliases []string
-}
-
-func (d *wildcardDirective) expansion() string {
-
-	loader := d.info.loader
-
-	prefix := d.tableAlias
-	if prefix == "" {
-		prefix = d.table.TableName()
+// ExtractWildcardsInfo extracts wildcard information from a statement or nil if not exists.
+func ExtractWildcardsInfo(stmt *info.StmtInfo) *WildcardsInfo {
+	locals := stmt.Locals(localsKey)
+	if locals != nil {
+		return locals.(*WildcardsInfo)
 	}
-	prefix = loader.Quote(prefix)
-
-	fragments := []string{}
-	for i := 0; i < d.table.NumColumn(); i++ {
-		if i != 0 {
-			fragments = append(fragments, ", ")
-		}
-		columnName := loader.Quote(d.table.Column(i).ColumnName())
-		fragments = append(fragments, fmt.Sprintf("%s.%s", prefix, columnName))
-	}
-
-	return strings.Join(fragments, "")
-
-}
-
-func (d *wildcardDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
-
-	elem := tok.(*etree.Element)
-	tableName := elem.SelectAttrValue("table", "")
-	if tableName == "" {
-		return fmt.Errorf("Missing 'table' attribute in <wildcard> directive")
-	}
-
-	table := db.TableByName(tableName)
-	if table == nil {
-		return fmt.Errorf("Table %+q not found", tableName)
-	}
-
-	as := elem.SelectAttrValue("as", "")
-
-	// Getset locals.
-	locals := stmt.Locals(wildcardLocalsKey)
-	if locals == nil {
-		locals = newWildcardsInfo(loader, db, stmt)
-		stmt.SetLocals(wildcardLocalsKey, locals)
-	}
-	info := locals.(*WildcardsInfo)
-	info.directives = append(info.directives, d)
-
-	// Set fields
-	d.info = info
-	d.table = table
-	d.tableAlias = as
-	d.idx = len(info.directives) - 1
 	return nil
-
-}
-
-func (d *wildcardDirective) QueryFragment() (string, error) {
-	return d.info.queryFragment(d), nil
-}
-
-func (d *wildcardDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
-	return d.info.processQueryResultColumns(resultCols)
-}
-
-func (d *wildcardDirective) Fragment() (string, error) {
-	return d.expansion(), nil
 }
 
 func newWildcardsInfo(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo) *WildcardsInfo {
@@ -228,6 +169,11 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 
 }
 
+// Valid return true if info != nil.
+func (info *WildcardsInfo) Valid() bool {
+	return info != nil
+}
+
 // WildcardColumn returns the table column for the i-th result column
 // if it is from a <wildcard> directive and nil otherwise.
 func (info *WildcardsInfo) WildcardColumn(i int) *info.ColumnInfo {
@@ -252,22 +198,79 @@ func (info *WildcardsInfo) WildcardAlias(i int) string {
 	return info.wildcardAliases[i]
 }
 
-// Valid return true if info != nil.
-func (info *WildcardsInfo) Valid() bool {
-	return info != nil
+func (d *wildcardDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+
+	// Getset WildcardsInfo.
+	locals := stmt.Locals(localsKey)
+	if locals == nil {
+		locals = newWildcardsInfo(loader, db, stmt)
+		stmt.SetLocals(localsKey, locals)
+	}
+	info := locals.(*WildcardsInfo)
+
+	// Extract Table info.
+	elem := tok.(*etree.Element)
+	tableName := elem.SelectAttrValue("table", "")
+	if tableName == "" {
+		return fmt.Errorf("Missing 'table' attribute in <wildcard> directive")
+	}
+
+	table := db.TableByName(tableName)
+	if table == nil {
+		return fmt.Errorf("Table %+q not found", tableName)
+	}
+
+	// Optinally alias
+	as := elem.SelectAttrValue("as", "")
+
+	// Set fields and add to WildcardsInfo
+	d.info = info
+	d.table = table
+	d.tableAlias = as
+	d.idx = len(info.directives)
+	info.directives = append(info.directives, d)
+
+	return nil
+
 }
 
-// ExtractWildcardsInfo extracts wildcard information from a statement or nil if not exists.
-func ExtractWildcardsInfo(stmt *info.StmtInfo) *WildcardsInfo {
-	locals := stmt.Locals(wildcardLocalsKey)
-	if locals != nil {
-		return locals.(*WildcardsInfo)
+func (d *wildcardDirective) QueryFragment() (string, error) {
+	return d.info.queryFragment(d), nil
+}
+
+func (d *wildcardDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
+	return d.info.processQueryResultColumns(resultCols)
+}
+
+func (d *wildcardDirective) Fragment() (string, error) {
+	return d.expansion(), nil
+}
+
+func (d *wildcardDirective) expansion() string {
+
+	loader := d.info.loader
+
+	prefix := d.tableAlias
+	if prefix == "" {
+		prefix = d.table.TableName()
 	}
-	return nil
+	prefix = loader.Quote(prefix)
+
+	fragments := []string{}
+	for i := 0; i < d.table.NumColumn(); i++ {
+		if i != 0 {
+			fragments = append(fragments, ", ")
+		}
+		columnName := loader.Quote(d.table.Column(i).ColumnName())
+		fragments = append(fragments, fmt.Sprintf("%s.%s", prefix, columnName))
+	}
+
+	return strings.Join(fragments, "")
+
 }
 
 func init() {
 	info.RegistDirectiveFactory(func() info.Directive {
 		return &wildcardDirective{}
-	}, "wildcard")
+	}, "wc")
 }

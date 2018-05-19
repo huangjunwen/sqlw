@@ -11,13 +11,12 @@ import (
 
 // StmtInfo contains information of a statement.
 type StmtInfo struct {
-	stmtType string // 'SELECT'/'UPDATE'/'INSERT'/'DELETE'
-	stmtName string
-	text     string
-	locals   map[interface{}]interface{}
+	stmtType   string // 'SELECT'/'UPDATE'/'INSERT'/'DELETE'
+	stmtName   string
+	text       string
+	resultCols []*datasrc.Column // for SELECT stmt only
 
-	// for SELECT stmt only
-	resultCols []*datasrc.Column
+	locals map[interface{}]interface{} // directive locals
 }
 
 // NewStmtInfo creates a new StmtInfo from an xml element, example statement xml element:
@@ -28,24 +27,24 @@ type StmtInfo struct {
 //   </stmt>
 //
 // A statement xml element contains SQL statement fragments and special directives.
-func NewStmtInfo(loader *datasrc.Loader, db *DBInfo, elem *etree.Element) (*StmtInfo, error) {
+func NewStmtInfo(loader *datasrc.Loader, db *DBInfo, stmtElem *etree.Element) (*StmtInfo, error) {
 
 	info := &StmtInfo{
 		locals: map[interface{}]interface{}{},
 	}
 
-	if elem.Tag != "stmt" {
-		return nil, fmt.Errorf("Expect <stmt> but got <%s>", elem.Tag)
+	if stmtElem.Tag != "stmt" {
+		return nil, fmt.Errorf("Expect <stmt> but got <%s>", stmtElem.Tag)
 	}
 
 	// Name attribute
-	info.stmtName = elem.SelectAttrValue("name", "")
+	info.stmtName = stmtElem.SelectAttrValue("name", "")
 	if info.stmtName == "" {
 		return nil, fmt.Errorf("Missing 'name' attribute of <%s>", info.stmtType)
 	}
 
 	// Process it.
-	if err := info.processElem(loader, db, elem); err != nil {
+	if err := info.process(loader, db, stmtElem); err != nil {
 		return nil, err
 	}
 
@@ -53,32 +52,72 @@ func NewStmtInfo(loader *datasrc.Loader, db *DBInfo, elem *etree.Element) (*Stmt
 
 }
 
-func (info *StmtInfo) processElem(loader *datasrc.Loader, db *DBInfo, elem *etree.Element) error {
+func (info *StmtInfo) token2TerminalDirectives(loader *datasrc.Loader, db *DBInfo, token etree.Token) ([]TerminalDirective, error) {
 
-	// Convert elem to a list of StmtDirective
-	directives := []Directive{}
+	directive := Directive(nil)
 
-	for _, t := range elem.Child {
+	// Token -> Directive.
+	switch tok := token.(type) {
+	case *etree.CharData:
+		directive = &textDirective{}
 
-		directive := Directive(nil)
+	case *etree.Element:
+		factory := directiveFactories[tok.Tag]
+		if factory == nil {
+			return nil, fmt.Errorf("Unknown directive <%s>", tok.Tag)
+		}
+		directive = factory()
 
-		switch tok := t.(type) {
-		case *etree.CharData:
-			directive = &textDirective{}
+	default:
+		return nil, nil
+	}
 
-		case *etree.Element:
-			factory := directiveFactories[tok.Tag]
-			if factory == nil {
-				return fmt.Errorf("Unknown directive <%s>", tok.Tag)
-			}
-			directive = factory()
+	// Initialize
+	if err := directive.Initialize(loader, db, info, token); err != nil {
+		return nil, err
+	}
+
+	// Expand directive recursively if it is NonterminalDirective.
+	switch d := directive.(type) {
+
+	case TerminalDirective:
+		return []TerminalDirective{d}, nil
+
+	case NonterminalDirective:
+		ts, err := d.Expand()
+		if err != nil {
+			return nil, err
 		}
 
-		if err := directive.Initialize(loader, db, info, t); err != nil {
+		ret := []TerminalDirective{}
+		for _, t := range ts {
+			terminalDirectives, err := info.token2TerminalDirectives(loader, db, t)
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, terminalDirectives...)
+		}
+
+		return ret, nil
+
+	default:
+		panic(fmt.Errorf("Directive must be either TerminalDirective or NonterminalDirective"))
+	}
+
+}
+
+func (info *StmtInfo) process(loader *datasrc.Loader, db *DBInfo, stmtElem *etree.Element) error {
+
+	// Convert stmtElem to a list of TerminalDirective
+	directives := []TerminalDirective{}
+
+	for _, token := range stmtElem.Child {
+
+		ds, err := info.token2TerminalDirectives(loader, db, token)
+		if err != nil {
 			return err
 		}
-
-		directives = append(directives, directive)
+		directives = append(directives, ds...)
 
 	}
 

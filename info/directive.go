@@ -9,6 +9,19 @@ import (
 type Directive interface {
 	// Initialize the directive.
 	Initialize(loader *datasrc.Loader, db *DBInfo, stmt *StmtInfo, tok etree.Token) error
+}
+
+// NonterminalDirective can expand to other directives.
+type NonterminalDirective interface {
+	Directive
+
+	// Expand to a list of xml tokens which will be converted to directives later.
+	Expand() ([]etree.Token, error)
+}
+
+// TerminalDirective can not expand to other directives.
+type TerminalDirective interface {
+	Directive
 
 	// QueryFragment returns the fragment of this directive to construct a valid SQL query.
 	// The SQL query is used to determine statement type, to obtain result column information for SELECT query,
@@ -28,6 +41,10 @@ type Directive interface {
 type textDirective struct {
 	data string
 }
+
+var (
+	_ TerminalDirective = (*textDirective)(nil)
+)
 
 func (d *textDirective) Initialize(loader *datasrc.Loader, db *DBInfo, stmt *StmtInfo, tok etree.Token) error {
 	d.data = tok.(*etree.CharData).Data

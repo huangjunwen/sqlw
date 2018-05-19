@@ -8,7 +8,10 @@ import (
 
 	"github.com/huangjunwen/sqlw/datasrc"
 	"github.com/huangjunwen/sqlw/info"
-	"github.com/huangjunwen/sqlw/info/directives"
+	"github.com/huangjunwen/sqlw/info/directives/arg"
+	_ "github.com/huangjunwen/sqlw/info/directives/repl"
+	"github.com/huangjunwen/sqlw/info/directives/vars"
+	"github.com/huangjunwen/sqlw/info/directives/wc"
 )
 
 var (
@@ -89,8 +92,8 @@ func (r *Renderer) funcMap() template.FuncMap {
 
 		},
 
-		"ExtractArgsInfo":      directives.ExtractArgsInfo,
-		"ExtractVarsInfo":      directives.ExtractVarsInfo,
-		"ExtractWildcardsInfo": directives.ExtractWildcardsInfo,
+		"ExtractArgsInfo":      darg.ExtractArgsInfo,
+		"ExtractVarsInfo":      dvars.ExtractVarsInfo,
+		"ExtractWildcardsInfo": dwc.ExtractWildcardsInfo,
 	}
 }
