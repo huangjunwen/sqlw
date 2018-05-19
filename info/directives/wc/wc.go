@@ -22,16 +22,20 @@ type WildcardsInfo struct {
 	db              *info.DBInfo
 	stmt            *info.StmtInfo
 	marker          string
-	directives      []*wildcardDirective
+	directives      []*wcDirective
 	resultProcessed bool
 }
 
-type wildcardDirective struct {
+type wcDirective struct {
 	info       *WildcardsInfo
 	table      *info.TableInfo
 	tableAlias string
 	idx        int // the idx-th wildcard directive in the statement
 }
+
+var (
+	_ info.TerminalDirective = (*wcDirective)(nil)
+)
 
 type localsKeyType struct{}
 
@@ -91,7 +95,7 @@ func (info *WildcardsInfo) parseMarker(s string) (isMarker bool, idx int, isBegi
 
 }
 
-func (info *WildcardsInfo) queryFragment(d *wildcardDirective) string {
+func (info *WildcardsInfo) queryFragment(d *wcDirective) string {
 	return fmt.Sprintf("1 AS %s, %s, 1 AS %s", info.fmtMarker(d.idx, true), d.expansion(), info.fmtMarker(d.idx, false))
 }
 
@@ -104,7 +108,7 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 	info.resultProcessed = true
 
 	processedResultCols := []*datasrc.Column{}
-	curWildcard := (*wildcardDirective)(nil)
+	curWildcard := (*wcDirective)(nil)
 	curWildcardColPos := 0
 
 	for _, resultCol := range *resultCols {
@@ -198,7 +202,7 @@ func (info *WildcardsInfo) WildcardAlias(i int) string {
 	return info.wildcardAliases[i]
 }
 
-func (d *wildcardDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+func (d *wcDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
 
 	// Getset WildcardsInfo.
 	locals := stmt.Locals(localsKey)
@@ -234,19 +238,19 @@ func (d *wildcardDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, 
 
 }
 
-func (d *wildcardDirective) QueryFragment() (string, error) {
+func (d *wcDirective) QueryFragment() (string, error) {
 	return d.info.queryFragment(d), nil
 }
 
-func (d *wildcardDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
+func (d *wcDirective) ProcessQueryResultColumns(resultCols *[]*datasrc.Column) error {
 	return d.info.processQueryResultColumns(resultCols)
 }
 
-func (d *wildcardDirective) Fragment() (string, error) {
+func (d *wcDirective) Fragment() (string, error) {
 	return d.expansion(), nil
 }
 
-func (d *wildcardDirective) expansion() string {
+func (d *wcDirective) expansion() string {
 
 	loader := d.info.loader
 
@@ -271,6 +275,6 @@ func (d *wildcardDirective) expansion() string {
 
 func init() {
 	info.RegistDirectiveFactory(func() info.Directive {
-		return &wildcardDirective{}
+		return &wcDirective{}
 	}, "wc")
 }

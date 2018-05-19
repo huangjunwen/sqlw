@@ -21,6 +21,10 @@ type argDirective struct {
 	argType string
 }
 
+var (
+	_ info.TerminalDirective = (*argDirective)(nil)
+)
+
 type localsKeyType struct{}
 
 var (

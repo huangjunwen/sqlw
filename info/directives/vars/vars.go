@@ -13,6 +13,10 @@ type VarsInfo struct {
 
 type varsDirective struct{}
 
+var (
+	_ info.TerminalDirective = (*varsDirective)(nil)
+)
+
 type localsKeyType struct{}
 
 var (

@@ -13,6 +13,10 @@ type replDirective struct {
 	with   string
 }
 
+var (
+	_ info.TerminalDirective = (*replDirective)(nil)
+)
+
 func (d *replDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 	with := elem.SelectAttrValue("with", "")
