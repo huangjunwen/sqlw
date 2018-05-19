@@ -1,4 +1,4 @@
-package info
+package infos
 
 import (
 	"github.com/beevik/etree"

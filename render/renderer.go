@@ -13,7 +13,7 @@ import (
 
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/datasrc"
-	"github.com/huangjunwen/sqlw/info"
+	"github.com/huangjunwen/sqlw/infos"
 )
 
 // Renderer is used for generating code.
@@ -28,7 +28,7 @@ type Renderer struct {
 	blacklist map[string]struct{}
 
 	// Runtime variables.
-	db          *info.DBInfo
+	db          *infos.DBInfo
 	scanTypeMap ScanTypeMap
 	templates   map[string]*template.Template
 }
@@ -124,7 +124,7 @@ func (r *Renderer) Run() error {
 	r.templates = make(map[string]*template.Template)
 
 	// Load db
-	db, err := info.NewDBInfo(r.loader)
+	db, err := infos.NewDBInfo(r.loader)
 	if err != nil {
 		return err
 	}
@@ -206,9 +206,9 @@ func (r *Renderer) Run() error {
 				return err
 			}
 
-			stmtInfos := []*info.StmtInfo{}
+			stmtInfos := []*infos.StmtInfo{}
 			for _, elem := range doc.ChildElements() {
-				stmtInfo, err := info.NewStmtInfo(r.loader, r.db, elem)
+				stmtInfo, err := infos.NewStmtInfo(r.loader, r.db, elem)
 				if err != nil {
 					return err
 				}

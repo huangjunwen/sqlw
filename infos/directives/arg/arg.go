@@ -1,11 +1,11 @@
-package darg
+package argdir
 
 import (
 	"fmt"
 
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/datasrc"
-	"github.com/huangjunwen/sqlw/info"
+	"github.com/huangjunwen/sqlw/infos"
 )
 
 // ArgsInfo contains wrapper function arguments information in a statement.
@@ -22,7 +22,7 @@ type argDirective struct {
 }
 
 var (
-	_ info.TerminalDirective = (*argDirective)(nil)
+	_ infos.TerminalDirective = (*argDirective)(nil)
 )
 
 type localsKeyType struct{}
@@ -32,7 +32,7 @@ var (
 )
 
 // ExtractArgsInfo extracts arg information from a statement or nil if not exists.
-func ExtractArgsInfo(stmt *info.StmtInfo) *ArgsInfo {
+func ExtractArgsInfo(stmt *infos.StmtInfo) *ArgsInfo {
 	locals := stmt.Locals(localsKey)
 	if locals != nil {
 		return locals.(*ArgsInfo)
@@ -71,7 +71,7 @@ func (info *ArgInfo) ArgType() string {
 	return info.argType
 }
 
-func (d *argDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+func (d *argDirective) Initialize(loader *datasrc.Loader, db *infos.DBInfo, stmt *infos.StmtInfo, tok etree.Token) error {
 
 	// Get/set ArgsInfo
 	locals := stmt.Locals(localsKey)
@@ -113,7 +113,7 @@ func (d *argDirective) Fragment() (string, error) {
 }
 
 func init() {
-	info.RegistDirectiveFactory(func() info.Directive {
+	infos.RegistDirectiveFactory(func() infos.Directive {
 		return &argDirective{}
 	}, "arg")
 }

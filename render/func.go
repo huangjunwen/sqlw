@@ -7,11 +7,11 @@ import (
 	"text/template"
 
 	"github.com/huangjunwen/sqlw/datasrc"
-	"github.com/huangjunwen/sqlw/info"
-	"github.com/huangjunwen/sqlw/info/directives/arg"
-	_ "github.com/huangjunwen/sqlw/info/directives/repl"
-	"github.com/huangjunwen/sqlw/info/directives/vars"
-	"github.com/huangjunwen/sqlw/info/directives/wc"
+	"github.com/huangjunwen/sqlw/infos"
+	"github.com/huangjunwen/sqlw/infos/directives/arg"
+	_ "github.com/huangjunwen/sqlw/infos/directives/repl"
+	"github.com/huangjunwen/sqlw/infos/directives/vars"
+	"github.com/huangjunwen/sqlw/infos/directives/wc"
 )
 
 var (
@@ -65,7 +65,7 @@ func (r *Renderer) funcMap() template.FuncMap {
 			switch c := v.(type) {
 			case *datasrc.Column:
 				col = c
-			case *info.ColumnInfo:
+			case *infos.ColumnInfo:
 				col = c.Col()
 			default:
 				return "", fmt.Errorf("Expect table column or query result column in ScanType but got %T", c)
@@ -92,8 +92,8 @@ func (r *Renderer) funcMap() template.FuncMap {
 
 		},
 
-		"ExtractArgsInfo":      darg.ExtractArgsInfo,
-		"ExtractVarsInfo":      dvars.ExtractVarsInfo,
-		"ExtractWildcardsInfo": dwc.ExtractWildcardsInfo,
+		"ExtractArgsInfo":      argdir.ExtractArgsInfo,
+		"ExtractVarsInfo":      varsdir.ExtractVarsInfo,
+		"ExtractWildcardsInfo": wcdir.ExtractWildcardsInfo,
 	}
 }

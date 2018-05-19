@@ -1,9 +1,9 @@
-package dvars
+package varsdir
 
 import (
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/datasrc"
-	"github.com/huangjunwen/sqlw/info"
+	"github.com/huangjunwen/sqlw/infos"
 )
 
 // VarsInfo contains custom variables in a statement.
@@ -14,7 +14,7 @@ type VarsInfo struct {
 type varsDirective struct{}
 
 var (
-	_ info.TerminalDirective = (*varsDirective)(nil)
+	_ infos.TerminalDirective = (*varsDirective)(nil)
 )
 
 type localsKeyType struct{}
@@ -24,7 +24,7 @@ var (
 )
 
 // ExtractVarsInfo extracts custom var information from a statement or nil if not exists.
-func ExtractVarsInfo(stmt *info.StmtInfo) *VarsInfo {
+func ExtractVarsInfo(stmt *infos.StmtInfo) *VarsInfo {
 	locals := stmt.Locals(localsKey)
 	if locals != nil {
 		return locals.(*VarsInfo)
@@ -54,7 +54,7 @@ func (info *VarsInfo) Value(name string) string {
 	return info.values[name]
 }
 
-func (d *varsDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+func (d *varsDirective) Initialize(loader *datasrc.Loader, db *infos.DBInfo, stmt *infos.StmtInfo, tok etree.Token) error {
 
 	// Get/set VarsInfo
 	locals := stmt.Locals(localsKey)
@@ -88,7 +88,7 @@ func (d *varsDirective) Fragment() (string, error) {
 }
 
 func init() {
-	info.RegistDirectiveFactory(func() info.Directive {
+	infos.RegistDirectiveFactory(func() infos.Directive {
 		return &varsDirective{}
 	}, "vars")
 }

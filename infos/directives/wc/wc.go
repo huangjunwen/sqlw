@@ -1,4 +1,4 @@
-package dwc
+package wcdir
 
 import (
 	"crypto/rand"
@@ -9,18 +9,18 @@ import (
 
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/datasrc"
-	"github.com/huangjunwen/sqlw/info"
+	"github.com/huangjunwen/sqlw/infos"
 )
 
 // WildcardsInfo contain wildcard information in a statement.
 type WildcardsInfo struct {
 	// len(wildcardColumns) == len(wildcardAliases) == len(resultColumns)
-	wildcardColumns []*info.ColumnInfo
+	wildcardColumns []*infos.ColumnInfo
 	wildcardAliases []string
 
 	loader          *datasrc.Loader
-	db              *info.DBInfo
-	stmt            *info.StmtInfo
+	db              *infos.DBInfo
+	stmt            *infos.StmtInfo
 	marker          string
 	directives      []*wcDirective
 	resultProcessed bool
@@ -28,13 +28,13 @@ type WildcardsInfo struct {
 
 type wcDirective struct {
 	info       *WildcardsInfo
-	table      *info.TableInfo
+	table      *infos.TableInfo
 	tableAlias string
 	idx        int // the idx-th wildcard directive in the statement
 }
 
 var (
-	_ info.TerminalDirective = (*wcDirective)(nil)
+	_ infos.TerminalDirective = (*wcDirective)(nil)
 )
 
 type localsKeyType struct{}
@@ -44,7 +44,7 @@ var (
 )
 
 // ExtractWildcardsInfo extracts wildcard information from a statement or nil if not exists.
-func ExtractWildcardsInfo(stmt *info.StmtInfo) *WildcardsInfo {
+func ExtractWildcardsInfo(stmt *infos.StmtInfo) *WildcardsInfo {
 	locals := stmt.Locals(localsKey)
 	if locals != nil {
 		return locals.(*WildcardsInfo)
@@ -52,7 +52,7 @@ func ExtractWildcardsInfo(stmt *info.StmtInfo) *WildcardsInfo {
 	return nil
 }
 
-func newWildcardsInfo(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo) *WildcardsInfo {
+func newWildcardsInfo(loader *datasrc.Loader, db *infos.DBInfo, stmt *infos.StmtInfo) *WildcardsInfo {
 	buf := make([]byte, 8)
 	if _, err := rand.Read(buf); err != nil {
 		panic(err)
@@ -180,7 +180,7 @@ func (info *WildcardsInfo) Valid() bool {
 
 // WildcardColumn returns the table column for the i-th result column
 // if it is from a <wildcard> directive and nil otherwise.
-func (info *WildcardsInfo) WildcardColumn(i int) *info.ColumnInfo {
+func (info *WildcardsInfo) WildcardColumn(i int) *infos.ColumnInfo {
 	if info == nil {
 		return nil
 	}
@@ -202,7 +202,7 @@ func (info *WildcardsInfo) WildcardAlias(i int) string {
 	return info.wildcardAliases[i]
 }
 
-func (d *wcDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+func (d *wcDirective) Initialize(loader *datasrc.Loader, db *infos.DBInfo, stmt *infos.StmtInfo, tok etree.Token) error {
 
 	// Getset WildcardsInfo.
 	locals := stmt.Locals(localsKey)
@@ -274,7 +274,7 @@ func (d *wcDirective) expansion() string {
 }
 
 func init() {
-	info.RegistDirectiveFactory(func() info.Directive {
+	infos.RegistDirectiveFactory(func() infos.Directive {
 		return &wcDirective{}
 	}, "wc")
 }

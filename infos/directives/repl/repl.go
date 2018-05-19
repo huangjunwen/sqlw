@@ -1,11 +1,11 @@
-package drepl
+package repldir
 
 import (
 	"fmt"
 
 	"github.com/beevik/etree"
 	"github.com/huangjunwen/sqlw/datasrc"
-	"github.com/huangjunwen/sqlw/info"
+	"github.com/huangjunwen/sqlw/infos"
 )
 
 type replDirective struct {
@@ -14,10 +14,10 @@ type replDirective struct {
 }
 
 var (
-	_ info.TerminalDirective = (*replDirective)(nil)
+	_ infos.TerminalDirective = (*replDirective)(nil)
 )
 
-func (d *replDirective) Initialize(loader *datasrc.Loader, db *info.DBInfo, stmt *info.StmtInfo, tok etree.Token) error {
+func (d *replDirective) Initialize(loader *datasrc.Loader, db *infos.DBInfo, stmt *infos.StmtInfo, tok etree.Token) error {
 	elem := tok.(*etree.Element)
 	with := elem.SelectAttrValue("with", "")
 	if with == "" {
@@ -41,7 +41,7 @@ func (d *replDirective) Fragment() (string, error) {
 }
 
 func init() {
-	info.RegistDirectiveFactory(func() info.Directive {
+	infos.RegistDirectiveFactory(func() infos.Directive {
 		return &replDirective{}
 	}, "repl")
 }
