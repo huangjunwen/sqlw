@@ -282,14 +282,28 @@ func buildUpdate(tr, newTr TableRowWithPrimary) (string, []interface{}, error) {
 
 }
 
-func updateTableRow(ctx context.Context, e Execer, tr, newTr TableRowWithPrimary) (sql.Result, error) {
+func updateTableRow(ctx context.Context, e Execer, tr, newTr TableRowWithPrimary) (updated bool, err error) {
 
 	query, args, err := buildUpdate(tr, newTr)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	return e.ExecContext(ctx, query, args...)
+	r, err := e.ExecContext(ctx, query, args...)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := r.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	if affected <= 0 {
+		return false, nil
+	}
+
+	return true, nil
 
 }
 
@@ -322,19 +336,31 @@ func buildDelete(meta *TableMeta) {
 
 }
 
-func deleteTableRow(ctx context.Context, e Execer, tr TableRowWithPrimary) (sql.Result, error) {
+func deleteTableRow(ctx context.Context, e Execer, tr TableRowWithPrimary) (deleted bool, err error) {
 
 	p := tr.PrimaryValue()
 	if p.IsNull() {
-		return nil, fmt.Errorf("Delete: row has null primary value(s)")
+		return false, fmt.Errorf("Delete: row has null primary value(s)")
 	}
 
 	args := []interface{}{}
 	p.PrimaryValuers(&args)
 
-	query := deleteTableRowQuerys[tr.TableMeta()]
+	r, err := e.ExecContext(ctx, deleteTableRowQuerys[tr.TableMeta()], args...)
+	if err != nil {
+		return false, err
+	}
 
-	return e.ExecContext(ctx, query, args...)
+	affected, err := r.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	if affected <= 0 {
+		return false, nil
+	}
+
+	return true, nil
 
 }
 
@@ -383,18 +409,28 @@ func buildReload(meta *TableMeta) {
 
 }
 
-func reloadTableRow(ctx context.Context, q Queryer, tr TableRowWithPrimary) (*sql.Row, error) {
+func reloadTableRow(ctx context.Context, q Queryer, tr TableRowWithPrimary) (reloaded bool, err error) {
 
 	p := tr.PrimaryValue()
 	if p.IsNull() {
-		return nil, fmt.Errorf("Reload: row has null primary value(s)")
+		return false, fmt.Errorf("Reload: row has null primary value(s)")
 	}
 
 	args := []interface{}{}
 	p.PrimaryValuers(&args)
 
-	query := reloadTableRowQuerys[tr.TableMeta()]
+	row := q.QueryRowContext(ctx, reloadTableRowQuerys[tr.TableMeta()], args...)
 
-	return q.QueryRowContext(ctx, query, args...), nil
+	dest := []interface{}{}
+	tr.ColumnScanners(&dest)
+
+	if err := row.Scan(dest...); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 
 }
