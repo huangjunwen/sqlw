@@ -23,7 +23,7 @@ type StmtInfo struct {
 //
 //   <stmt name="BlogByUser">
 //     <arg name="userId" type="int" />
-//     SELECT <wildcard table="blog" /> FROM blog WHERE user_id=<replace with=":userId">1</replace>
+//     SELECT <wc table="blog" /> FROM blog WHERE user_id=<repl with=":userId">1</repl>
 //   </stmt>
 //
 // A statement xml element contains SQL statement fragments and special directives.
