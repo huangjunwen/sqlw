@@ -51,7 +51,11 @@ type Column struct {
 
 // TableColumn represents a table column.
 type TableColumn struct {
+	// Basic column information.
 	Column
+
+	// Pos is the position of the column in table.
+	Pos int
 
 	// DefaultValue is the default value of the table column.
 	DefaultValue sql.NullString

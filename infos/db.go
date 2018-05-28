@@ -29,7 +29,6 @@ type TableInfo struct {
 // ColumnInfo contains information of a table column.
 type ColumnInfo struct {
 	table *TableInfo
-	pos   int // position in table
 	col   *datasrc.TableColumn
 }
 
@@ -79,10 +78,9 @@ func NewDBInfo(loader *datasrc.Loader) (*DBInfo, error) {
 			return nil, err
 		}
 
-		for i, col := range cols {
+		for _, col := range cols {
 			column := &ColumnInfo{
 				table: table,
-				pos:   i,
 				col:   col,
 			}
 			table.columns = append(table.columns, column)
@@ -381,7 +379,7 @@ func (info *ColumnInfo) Pos() int {
 	if info == nil {
 		return -1
 	}
-	return info.pos
+	return info.col.Pos
 }
 
 // ColumnName returns the table column name. It returns "" if info is nil.

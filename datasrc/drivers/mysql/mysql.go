@@ -249,7 +249,7 @@ func (driver mysqlDriver) LoadTableColumns(conn *sql.Conn, tableName string) (ta
 		return nil, err
 	}
 
-	for _, column := range columns {
+	for i, column := range columns {
 
 		row := conn.QueryRowContext(context.Background(), `
 		SELECT
@@ -267,6 +267,7 @@ func (driver mysqlDriver) LoadTableColumns(conn *sql.Conn, tableName string) (ta
 
 		tableColumn := &datasrc.TableColumn{
 			Column:       *column,
+			Pos:          i,
 			DefaultValue: defaultValue,
 		}
 
