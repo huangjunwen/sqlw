@@ -38,11 +38,19 @@ type TableRowPrimaryValue interface {
 
 // TableMeta contains meta information of a table.
 type TableMeta struct {
+	// Basic information.
 	tableName          string
 	columnNames        []string       // column pos -> column name
 	columnNamesMap     map[string]int // column name -> column pos
 	primaryColumnNames []string       // len(primaryColumnNames) == 0 if not exists
 	autoIncColumnName  string         // autoIncColumnName == "" if not exists
+
+	// Precalculate information.
+	pcColumnList  string // "`col1`, `col2`, ..."
+	pcPrimaryCond string // "`id1`=? AND `id2`=? ..."
+	pcSelectQuery string // "SELECT `col11`, ... FROM tab WHERE `id1`=? AND ..."
+	pcDeleteQuery string // "DELETE FROM tab WHERE `id1`=? AND ..."
+	// NOTE: INSERT and UPDATE querys are dynamic generated
 }
 
 // TableMetaOption is option in creating TableMeta.
@@ -73,27 +81,51 @@ func OptAutoIncColumnName(columnName string) TableMetaOption {
 }
 
 // NewTableMeta creates a new TableMeta.
-//
-// NOTE: This function must be called at package-level variable initialization or in init() function.
 func NewTableMeta(tableName string, columnNames []string, opts ...TableMetaOption) *TableMeta {
 	meta := &TableMeta{
 		tableName:      tableName,
 		columnNames:    columnNames,
 		columnNamesMap: make(map[string]int),
 	}
-	for i, columnName := range columnNames {
+	for i, columnName := range meta.columnNames {
 		meta.columnNamesMap[columnName] = i
 	}
 	for _, opt := range opts {
 		opt(meta)
 	}
-
-	// Some global initialization.
-	if len(meta.primaryColumnNames) != 0 {
-		buildDelete(meta)
-		buildReload(meta)
-	}
+	meta.precalculate()
 	return meta
+}
+
+func (meta *TableMeta) precalculate() {
+	// pcColumnList
+	columnList := []byte{}
+	for _, columnName := range meta.columnNames {
+		columnList = append(columnList, ", `"...)
+		columnList = append(columnList, columnName...)
+		columnList = append(columnList, '`')
+	}
+	meta.pcColumnList = string(columnList[2:]) // Strip the initial ", "
+
+	if len(meta.primaryColumnNames) == 0 {
+		return
+	}
+
+	// primaryCond
+	primaryCond := []byte{}
+	for _, columnName := range meta.primaryColumnNames {
+		primaryCond = append(primaryCond, " AND `"...)
+		primaryCond = append(primaryCond, columnName...)
+		primaryCond = append(primaryCond, "`=?"...)
+	}
+	meta.pcPrimaryCond = string(primaryCond[5:]) // Strip the initial " AND "
+
+	// pcSelectQuery
+	meta.pcSelectQuery = fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", meta.pcColumnList, meta.tableName, meta.pcPrimaryCond)
+
+	// pcDeleteQuery
+	meta.pcDeleteQuery = fmt.Sprintf("DELETE FROM `%s` WHERE %s", meta.tableName, meta.pcPrimaryCond)
+
 }
 
 // TableName returns the name of the table.
@@ -158,8 +190,8 @@ func isNull(value interface{}) bool {
 func buildInsert(tr TableRow) (string, []interface{}, error) {
 
 	meta := tr.TableMeta()
-	cols := []byte{} // "`col1`, `col2`, ..."
-	phs := []byte{}  // "?, ?, ..."
+	cols := []byte{} // ", `col1`, `col2`, ..."
+	phs := []byte{}  // ", ?, ?, ..."
 	args := []interface{}{}
 
 	vals := []interface{}{}
@@ -175,21 +207,25 @@ func buildInsert(tr TableRow) (string, []interface{}, error) {
 			continue
 		}
 
-		if len(args) != 0 {
-			cols = append(cols, ", "...)
-			phs = append(phs, ", "...)
-		}
-		cols = append(cols, '`')
+		cols = append(cols, ", `"...)
 		cols = append(cols, columnName...)
 		cols = append(cols, '`')
-		phs = append(phs, '?')
+		phs = append(phs, ", ?"...)
 		args = append(args, val)
+	}
+
+	if len(cols) > 0 {
+		cols = cols[2:] // Strip initial ", "
+	}
+	if len(phs) > 0 {
+		phs = phs[2:] // Strip initial ", "
 	}
 
 	// NOTE: "INSERT INTO tab () VALUES ()" is valid
 	return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", meta.TableName(), cols, phs), args, nil
 }
 
+// insertTableRow insert a table row with not-null columns (e.g. null columns are ignored).
 func insertTableRow(ctx context.Context, e Execer, tr TableRow) (sql.Result, error) {
 
 	query, args, err := buildInsert(tr)
@@ -208,10 +244,16 @@ func buildUpdate(tr, newTr TableRowWithPrimary) (string, []interface{}, error) {
 		panic(fmt.Errorf("Update: update with different table's row"))
 	}
 
-	asgmts := []byte{} // "`col1`=?, `col2`=?, ..."
-	prims := []byte{}  // "`id1`=? AND `id2`=? ..."
+	primVal := tr.PrimaryValue()
+	if primVal.IsNull() {
+		return "", nil, fmt.Errorf("Update: row(s) have null primary value(s)")
+	}
+	if primVal != newTr.PrimaryValue() {
+		return "", nil, fmt.Errorf("Update: row(s) have different primary value(s)")
+	}
+
+	asgmts := []byte{} // ", `col1`=?, `col2`=?, ..."
 	asgmtArgs := []interface{}{}
-	primArgs := []interface{}{}
 
 	vals := []interface{}{}
 	tr.ColumnValuers(&vals)
@@ -225,212 +267,97 @@ func buildUpdate(tr, newTr TableRowWithPrimary) (string, []interface{}, error) {
 		val := vals[i]
 		newVal := newVals[i]
 
-		// --- Normal column ---
-		if !meta.IsPrimaryColumn(columnName) {
-
-			if val == newVal {
-				// No change.
-				continue
-			}
-
-			if len(asgmtArgs) != 0 {
-				asgmts = append(asgmts, ", "...)
-			}
-			asgmts = append(asgmts, '`')
-			asgmts = append(asgmts, columnName...)
-			asgmts = append(asgmts, "`=?"...)
-			asgmtArgs = append(asgmtArgs, newVal)
-
+		if meta.IsPrimaryColumn(columnName) {
+			// Skip primary column(s).
 			continue
-
 		}
 
-		// --- Primary column ---
-
-		// Two rows should have same not-null primary values.
-		if val != newVal {
-			return "", nil, fmt.Errorf("Update: rows have different primary value(s)")
-		}
-		if isNull(val) {
-			return "", nil, fmt.Errorf("Update: rows have null primary value(s)")
+		if val == newVal {
+			// Skip column(s) that have same values.
+			continue
 		}
 
-		// Add where clause.
-		if len(primArgs) != 0 {
-			prims = append(prims, " AND "...)
-		}
-		prims = append(prims, '`')
-		prims = append(prims, columnName...)
-		prims = append(prims, "`=?"...)
-		primArgs = append(primArgs, val)
-
-		// Add "id=id, ..." in assigment list as placeholder. Since
-		// "UPDATE tab SET WHERE id=1" is not valid, but
-		// "UPDATE tab SET id=id WHERE id=1" is valid.
-		if len(asgmtArgs) != 0 {
-			asgmts = append(asgmts, ", "...)
-		}
-		asgmts = append(asgmts, '`')
+		asgmts = append(asgmts, ", `"...)
 		asgmts = append(asgmts, columnName...)
-		asgmts = append(asgmts, "`=`"...)
-		asgmts = append(asgmts, columnName...)
-		asgmts = append(asgmts, '`')
+		asgmts = append(asgmts, "`=?"...)
+		asgmtArgs = append(asgmtArgs, newVal)
 
 	}
 
-	return fmt.Sprintf("UPDATE `%s` SET %s WHERE %s", meta.TableName(), asgmts, prims), append(asgmtArgs, primArgs), nil
+	if len(asgmtArgs) == 0 {
+		return "", nil, nil
+	}
+
+	primArgs := []interface{}{}
+	primVal.PrimaryValuers(&primArgs)
+	return fmt.Sprintf("UPDATE `%s` SET %s WHERE %s", meta.TableName(), asgmts[2:], meta.pcPrimaryCond), append(asgmtArgs, primArgs...), nil
 
 }
 
-func updateTableRow(ctx context.Context, e Execer, tr, newTr TableRowWithPrimary) (updated bool, err error) {
+// updateTableRow updates a table row to new values. Only columns with different values are updated.
+func updateTableRow(ctx context.Context, e Execer, tr, newTr TableRowWithPrimary) error {
 
 	query, args, err := buildUpdate(tr, newTr)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	r, err := e.ExecContext(ctx, query, args...)
-	if err != nil {
-		return false, err
+	// No changes.
+	if query == "" {
+		return nil
 	}
 
-	affected, err := r.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-
-	if affected <= 0 {
-		return false, nil
-	}
-
-	return true, nil
+	// NOTE: Affected rows can have different meanings in MySQL (https://dev.mysql.com/doc/refman/5.7/en/mysql-affected-rows.html):
+	//
+	//   For UPDATE statements, the affected-rows value by default is the number of
+	//   rows actually changed. If you specify the CLIENT_FOUND_ROWS flag to mysql_real_connect()
+	//   when connecting to mysqld, the affected-rows value is the number of rows "found";
+	//   that is, matched by the WHERE clause.
+	//
+	// So just discard this piece of information.
+	_, err = e.ExecContext(ctx, query, args...)
+	return err
 
 }
 
-var (
-	deleteTableRowQuerys = map[*TableMeta]string{}
-)
+// deleteTableRow deletes a table row.
+func deleteTableRow(ctx context.Context, e Execer, tr TableRowWithPrimary) error {
 
-func buildDelete(meta *TableMeta) {
-
-	n := meta.NumPrimaryColumn()
-	if n <= 0 {
-		panic(fmt.Errorf("buildDelete for table without primary key"))
-	}
-
-	prims := []byte{} // "`id1`=? AND `id2=?` ..."
-
-	for i := 0; i < n; i++ {
-
-		columnName := meta.PrimaryColumnName(i)
-		if len(prims) != 0 {
-			prims = append(prims, " AND "...)
-		}
-		prims = append(prims, '`')
-		prims = append(prims, columnName...)
-		prims = append(prims, "`=?"...)
-
-	}
-
-	deleteTableRowQuerys[meta] = fmt.Sprintf("DELETE FROM `%s` WHERE %s", meta.TableName(), prims)
-
-}
-
-func deleteTableRow(ctx context.Context, e Execer, tr TableRowWithPrimary) (deleted bool, err error) {
-
-	p := tr.PrimaryValue()
-	if p.IsNull() {
-		return false, fmt.Errorf("Delete: row has null primary value(s)")
+	primVal := tr.PrimaryValue()
+	if primVal.IsNull() {
+		return fmt.Errorf("Delete: row has null primary value(s)")
 	}
 
 	args := []interface{}{}
-	p.PrimaryValuers(&args)
+	primVal.PrimaryValuers(&args)
 
-	r, err := e.ExecContext(ctx, deleteTableRowQuerys[tr.TableMeta()], args...)
-	if err != nil {
-		return false, err
-	}
-
-	affected, err := r.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-
-	if affected <= 0 {
-		return false, nil
-	}
-
-	return true, nil
+	_, err := e.ExecContext(ctx, tr.TableMeta().pcDeleteQuery, args...)
+	return err
 
 }
 
-var (
-	reloadTableRowQuerys = map[*TableMeta]string{}
-)
+// selectTableRow selects a table row with/without "FOR UPDATE".
+//
+// NOTE: ErrNoRows can be returned.
+func selectTableRow(ctx context.Context, q Queryer, tr TableRowWithPrimary, lock bool) error {
 
-func buildReload(meta *TableMeta) {
-
-	n := meta.NumPrimaryColumn()
-	if n <= 0 {
-		panic(fmt.Errorf("buildReload for table without primary key"))
-	}
-
-	prims := []byte{} // "`id1`=? AND `id2=?` ..."
-
-	for i := 0; i < n; i++ {
-
-		columnName := meta.PrimaryColumnName(i)
-		if len(prims) != 0 {
-			prims = append(prims, " AND "...)
-		}
-		prims = append(prims, '`')
-		prims = append(prims, columnName...)
-		prims = append(prims, "`=?"...)
-
-	}
-
-	selects := []byte{} // "`col1`, `col2`, ..."
-
-	m := meta.NumColumn()
-
-	for i := 0; i < m; i++ {
-
-		columnName := meta.ColumnName(i)
-		if len(selects) != 0 {
-			selects = append(selects, ", "...)
-		}
-		selects = append(selects, '`')
-		selects = append(selects, columnName...)
-		selects = append(selects, '`')
-
-	}
-
-	reloadTableRowQuerys[meta] = fmt.Sprintf("SELECT %s FROM `%s` WHERE %s", selects, meta.TableName(), prims)
-
-}
-
-func reloadTableRow(ctx context.Context, q Queryer, tr TableRowWithPrimary) (reloaded bool, err error) {
-
-	p := tr.PrimaryValue()
-	if p.IsNull() {
-		return false, fmt.Errorf("Reload: row has null primary value(s)")
+	primVal := tr.PrimaryValue()
+	if primVal.IsNull() {
+		return fmt.Errorf("Reload: row has null primary value(s)")
 	}
 
 	args := []interface{}{}
-	p.PrimaryValuers(&args)
+	primVal.PrimaryValuers(&args)
 
-	row := q.QueryRowContext(ctx, reloadTableRowQuerys[tr.TableMeta()], args...)
+	query := tr.TableMeta().pcSelectQuery
+	if lock {
+		query += " FOR UPDATE"
+	}
+	row := q.QueryRowContext(ctx, query, args...)
 
 	dest := []interface{}{}
 	tr.ColumnScanners(&dest)
 
-	if err := row.Scan(dest...); err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return true, nil
+	return row.Scan(dest...)
 
 }
