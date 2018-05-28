@@ -14,8 +14,8 @@ type Driver interface {
 	// LoadTableNames returns all table names in current database.
 	LoadTableNames(conn *sql.Conn) (tableNames []string, err error)
 
-	// LoadColumns returns columns of a given table.
-	LoadColumns(conn *sql.Conn, tableName string) (tableColumns []*TableColumn, err error)
+	// LoadTableColumns returns columns of a given table.
+	LoadTableColumns(conn *sql.Conn, tableName string) (tableColumns []*TableColumn, err error)
 
 	// LoadIndexNames returns all index name for a given table.
 	LoadIndexNames(conn *sql.Conn, tableName string) (indexNames []string, err error)

@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -192,7 +193,7 @@ func TestLoadTableInfo(t *testing.T) {
 
 	// --- LoadColumns ---
 	{
-		columns, err := driver.LoadColumns(conn, "where")
+		columns, err := driver.LoadTableColumns(conn, "where")
 		assert.NoError(err)
 		assert.Len(columns, 2)
 		assert.Equal("and", columns[0].Name)
@@ -314,6 +315,59 @@ func TestLoadTableInfo(t *testing.T) {
 			assert.Equal("group", refTableName)
 			assert.Len(refColumnNames, 1)
 			assert.Equal("by", refColumnNames[0])
+		}
+	}
+
+}
+
+func TestDefaultValue(t *testing.T) {
+
+	assert := assert.New(t)
+
+	defer testutils.CatchDBExecPanic()
+	exec := func(query string, args ...interface{}) {
+		testutils.DBExec(t, conn, query, args...)
+	}
+
+	exec("CREATE DATABASE testing3")
+	defer func() {
+		conn.ExecContext(context.Background(), "DROP DATABASE testing3")
+	}()
+	exec("USE testing3")
+
+	exec("" +
+		"CREATE TABLE `dft` (" +
+		" `int_n_nodft` INT, " +
+		" `int_z_nodft` INT NOT NULL, " +
+		" `int_n_dft` INT AUTO_INCREMENT, " +
+		" `int_z_dft` INT NOT NULL DEFAULT 101, " +
+		" `ts_nimplicit_dft` TIMESTAMP, " +
+		//" `ts_z` TIMESTAMP NOT NULL, " + // NOTE: Not allowed
+		" `ts_n_dft` TIMESTAMP DEFAULT NOW(), " +
+		" `ts_z_dft` TIMESTAMP NOT NULL DEFAULT '2018-01-01 00:00:00', " +
+		" `dt_n_nodft` DATETIME, " +
+		" `dt_z_nodft` DATETIME NOT NULL, " +
+		" `dt_n_dft` DATETIME DEFAULT '2018-01-01 00:00:01', " +
+		" `dt_z_dft` DATETIME NOT NULL DEFAULT NOW(), " +
+		" `char_n_nodft` CHAR(32), " +
+		" `char_z_nodft` CHAR(32) NOT NULL, " +
+		" `char_n_dft` CHAR(32) DEFAULT '', " +
+		" `char_z_dft` CHAR(32) NOT NULL DEFAULT 'NULL', " +
+		" PRIMARY KEY (`int_n_dft`)" +
+		")")
+
+	tableColumns, err := driver.LoadTableColumns(conn, "dft")
+	assert.NoError(err)
+	for _, tableColumn := range tableColumns {
+		parts := strings.Split(tableColumn.Name, "_")
+		assert.Len(parts, 3)
+		switch parts[2] {
+		case "dft":
+			assert.True(tableColumn.DefaultValue.Valid)
+		case "nodft":
+			assert.False(tableColumn.DefaultValue.Valid)
+		default:
+			panic(fmt.Errorf("Bad column name"))
 		}
 	}
 

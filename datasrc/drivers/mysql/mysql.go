@@ -238,7 +238,7 @@ func (driver mysqlDriver) LoadTableNames(conn *sql.Conn) (tableNames []string, e
 	return tableNames, nil
 }
 
-func (driver mysqlDriver) LoadColumns(conn *sql.Conn, tableName string) (tableColumns []*datasrc.TableColumn, err error) {
+func (driver mysqlDriver) LoadTableColumns(conn *sql.Conn, tableName string) (tableColumns []*datasrc.TableColumn, err error) {
 	dbName, err := loadDBName(conn)
 	if err != nil {
 		return nil, err

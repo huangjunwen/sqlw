@@ -74,7 +74,7 @@ func NewDBInfo(loader *datasrc.Loader) (*DBInfo, error) {
 		}
 
 		// Columns info
-		cols, err := loader.LoadColumns(tableName)
+		cols, err := loader.LoadTableColumns(tableName)
 		if err != nil {
 			return nil, err
 		}

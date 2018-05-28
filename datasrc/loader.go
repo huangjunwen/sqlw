@@ -87,9 +87,9 @@ func (loader *Loader) LoadTableNames() (tableNames []string, err error) {
 	return loader.driver.LoadTableNames(loader.conn)
 }
 
-// LoadColumns returns columns of a given table.
-func (loader *Loader) LoadColumns(tableName string) (columns []*TableColumn, err error) {
-	return loader.driver.LoadColumns(loader.conn, tableName)
+// LoadTableColumns returns columns of a given table.
+func (loader *Loader) LoadTableColumns(tableName string) (columns []*TableColumn, err error) {
+	return loader.driver.LoadTableColumns(loader.conn, tableName)
 }
 
 // LoadIndexNames returns all index name for a given table.
