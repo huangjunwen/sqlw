@@ -47,7 +47,7 @@ func groupBy(src Slicer, selector func(interface{}) TableRowWithPrimary, trs Sli
 		p := tr.PrimaryValue()
 
 		// Skip NULL primary values.
-		if p.IsNull() {
+		if p == nil {
 			continue
 		}
 

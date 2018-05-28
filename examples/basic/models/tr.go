@@ -12,10 +12,10 @@ type TableRow interface {
 	// TableMeta returns meta information of the table.
 	TableMeta() *TableMeta
 
-	// ColumnValuers append all columns as valuers to dest.
+	// ColumnValuers appends all columns as valuers to dest.
 	ColumnValuers(dest *[]interface{})
 
-	// ColumnScanners append all columns as scanners to dest.
+	// ColumnScanners appends all columns as scanners to dest.
 	ColumnScanners(dest *[]interface{})
 }
 
@@ -23,16 +23,13 @@ type TableRow interface {
 type TableRowWithPrimary interface {
 	TableRow
 
-	// PrimaryValue returns the primary key value of the row.
+	// PrimaryValue returns the primary key value of the row or nil if it's invalid (NULL).
 	PrimaryValue() TableRowPrimaryValue
 }
 
 // TableRowPrimaryValue represents the primary key value of a table row.
 type TableRowPrimaryValue interface {
-	// IsNull returns true if the primary key value is not valid (NULL).
-	IsNull() bool
-
-	// PrimaryValuers primary columns as valuers to dest.
+	// PrimaryValuers appends primary columns as valuers to dest.
 	PrimaryValuers(dest *[]interface{})
 }
 
@@ -245,7 +242,7 @@ func buildUpdate(tr, newTr TableRowWithPrimary) (string, []interface{}, error) {
 	}
 
 	primVal := tr.PrimaryValue()
-	if primVal.IsNull() {
+	if primVal == nil {
 		return "", nil, fmt.Errorf("Update: row(s) have null primary value(s)")
 	}
 	if primVal != newTr.PrimaryValue() {
@@ -324,7 +321,7 @@ func updateTableRow(ctx context.Context, e Execer, tr, newTr TableRowWithPrimary
 func deleteTableRow(ctx context.Context, e Execer, tr TableRowWithPrimary) error {
 
 	primVal := tr.PrimaryValue()
-	if primVal.IsNull() {
+	if primVal == nil {
 		return fmt.Errorf("Delete: row has null primary value(s)")
 	}
 
@@ -342,7 +339,7 @@ func deleteTableRow(ctx context.Context, e Execer, tr TableRowWithPrimary) error
 func selectTableRow(ctx context.Context, q Queryer, tr TableRowWithPrimary, lock bool) error {
 
 	primVal := tr.PrimaryValue()
-	if primVal.IsNull() {
+	if primVal == nil {
 		return fmt.Errorf("Reload: row has null primary value(s)")
 	}
 
