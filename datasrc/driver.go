@@ -9,7 +9,7 @@ import (
 // NOTE: Use sql.Conn instead of sql.DB to make sure only one database connection is using.
 type Driver interface {
 	// LoadQueryResultColumns returns result columns of a query.
-	LoadQueryResultColumns(conn *sql.Conn, query string) (columns []*Column, err error)
+	LoadQueryResultColumns(conn *sql.Conn, query string, args ...interface{}) (columns []*Column, err error)
 
 	// LoadTableNames returns all table names in current database.
 	LoadTableNames(conn *sql.Conn) (tableNames []string, err error)

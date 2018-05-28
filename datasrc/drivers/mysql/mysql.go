@@ -66,8 +66,8 @@ const (
 	flagUnsigned = 1 << 5
 )
 
-func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string) (columns []*datasrc.Column, err error) {
-	rows, err := conn.QueryContext(context.Background(), query)
+func (driver mysqlDriver) LoadQueryResultColumns(conn *sql.Conn, query string, args ...interface{}) (columns []*datasrc.Column, err error) {
+	rows, err := conn.QueryContext(context.Background(), query, args...)
 	if err != nil {
 		return nil, err
 	}

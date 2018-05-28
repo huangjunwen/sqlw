@@ -78,8 +78,8 @@ func (loader *Loader) Close() {
 }
 
 // LoadQueryResultColumns returns result columns of a query.
-func (loader *Loader) LoadQueryResultColumns(query string) (columns []*Column, err error) {
-	return loader.driver.LoadQueryResultColumns(loader.conn, query)
+func (loader *Loader) LoadQueryResultColumns(query string, args ...interface{}) (columns []*Column, err error) {
+	return loader.driver.LoadQueryResultColumns(loader.conn, query, args...)
 }
 
 // LoadTableNames returns all table names in current database.
