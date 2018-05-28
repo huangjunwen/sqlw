@@ -29,8 +29,7 @@ type TableInfo struct {
 // ColumnInfo contains information of a table column.
 type ColumnInfo struct {
 	table *TableInfo
-	pos   int // position in table
-	col   *datasrc.Column
+	col   *datasrc.TableColumn
 }
 
 // IndexInfo contains information of an index.
@@ -74,15 +73,14 @@ func NewDBInfo(loader *datasrc.Loader) (*DBInfo, error) {
 		}
 
 		// Columns info
-		cols, err := loader.LoadColumns(tableName)
+		cols, err := loader.LoadTableColumns(tableName)
 		if err != nil {
 			return nil, err
 		}
 
-		for i, col := range cols {
+		for _, col := range cols {
 			column := &ColumnInfo{
 				table: table,
-				pos:   i,
 				col:   col,
 			}
 			table.columns = append(table.columns, column)
@@ -381,10 +379,10 @@ func (info *ColumnInfo) Pos() int {
 	if info == nil {
 		return -1
 	}
-	return info.pos
+	return info.col.Pos
 }
 
-// ColumnName returns the column name. It returns "" if info is nil.
+// ColumnName returns the table column name. It returns "" if info is nil.
 func (info *ColumnInfo) ColumnName() string {
 	if info == nil {
 		return ""
@@ -392,8 +390,24 @@ func (info *ColumnInfo) ColumnName() string {
 	return info.col.Name
 }
 
-// Col returns the underly datasrc.Column. It returns nil if info is nil.
-func (info *ColumnInfo) Col() *datasrc.Column {
+// HasDefaultValue returns true if the table column has a defualt value. It returns false if info is nil.
+func (info *ColumnInfo) HasDefaultValue() bool {
+	if info == nil {
+		return false
+	}
+	return info.col.DefaultValue.Valid
+}
+
+// DefaultValue returns the default value literal of the table column.
+func (info *ColumnInfo) DefaultValue() string {
+	if info == nil {
+		return ""
+	}
+	return info.col.DefaultValue.String
+}
+
+// Col returns the underly datasrc.TableColumn. It returns nil if info is nil.
+func (info *ColumnInfo) Col() *datasrc.TableColumn {
 	if info == nil {
 		return nil
 	}
