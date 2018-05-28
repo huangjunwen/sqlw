@@ -40,6 +40,46 @@ func camel(s string, upper bool) string {
 
 func (r *Renderer) funcMap() template.FuncMap {
 
+	scanType := func(val interface{}, idx int) (string, error) {
+
+		col := (*datasrc.Column)(nil)
+
+		switch v := val.(type) {
+		case *datasrc.Column:
+			col = v
+		case *datasrc.TableColumn:
+			col = &v.Column
+		case *infos.ColumnInfo:
+			col = &v.Col().Column
+		default:
+			return "", fmt.Errorf("ScanType: Expect table or query result column but got %T", val)
+		}
+
+		if col == nil {
+			return "", fmt.Errorf("ScanType: Column is nil")
+		}
+
+		scanTypes, found := r.scanTypeMap[col.DataType]
+		if !found {
+			return "", fmt.Errorf("ScanType: Can't get scan type for %+q", col.DataType)
+		}
+
+		if idx < 0 {
+			if col.HasNullable {
+				if col.Nullable {
+					idx = 1
+				} else {
+					idx = 0
+				}
+			} else {
+				// NOTE: no HasNullable, then assume it is nullable since nullable type > not-nullable type.
+				idx = 1
+			}
+		}
+
+		return scanTypes[idx], nil
+	}
+
 	return template.FuncMap{
 		"UpperCamel": func(s string) string {
 			return camel(s, true)
@@ -60,38 +100,14 @@ func (r *Renderer) funcMap() template.FuncMap {
 			return strings.Join(lines, "\n")
 		},
 
-		"ScanType": func(v interface{}) (string, error) {
-			col := (*datasrc.Column)(nil)
-			switch c := v.(type) {
-			case *datasrc.Column:
-				col = c
-			case *datasrc.TableColumn:
-				col = &c.Column
-			case *infos.ColumnInfo:
-				col = &c.Col().Column
-			default:
-				return "", fmt.Errorf("Expect table column or query result column in ScanType but got %T", c)
-			}
-			if col == nil {
-				return "", fmt.Errorf("Column is nil")
-			}
-
-			scanTypes, found := r.scanTypeMap[col.DataType]
-			if !found {
-				return "", fmt.Errorf("Can't get scan type for %+q", col.DataType)
-			}
-
-			// NOTE: If not HasNullable, then assume it is nullable since nullable type > not-nullable type.
-			nullable := col.Nullable
-			if !col.HasNullable {
-				nullable = true
-			}
-
-			if nullable {
-				return scanTypes[1], nil
-			}
-			return scanTypes[0], nil
-
+		"ScanType": func(col interface{}) (string, error) {
+			return scanType(col, -1)
+		},
+		"NotNullScanType": func(col interface{}) (string, error) {
+			return scanType(col, 0)
+		},
+		"NullScanType": func(col interface{}) (string, error) {
+			return scanType(col, 1)
 		},
 
 		"ExtractArgsInfo":      argdir.ExtractArgsInfo,
