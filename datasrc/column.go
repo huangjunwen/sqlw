@@ -49,6 +49,14 @@ type Column struct {
 	DataType string
 }
 
+// TableColumn represents a table column.
+type TableColumn struct {
+	Column
+
+	// DefaultValue is the default value of the table column.
+	DefaultValue sql.NullString
+}
+
 // NewColumn extract information from sql.Column and returns Column.
 func NewColumn(col *sql.ColumnType, dataType string) *Column {
 	ret := &Column{

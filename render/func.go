@@ -65,8 +65,10 @@ func (r *Renderer) funcMap() template.FuncMap {
 			switch c := v.(type) {
 			case *datasrc.Column:
 				col = c
+			case *datasrc.TableColumn:
+				col = &c.Column
 			case *infos.ColumnInfo:
-				col = c.Col()
+				col = &c.Col().Column
 			default:
 				return "", fmt.Errorf("Expect table column or query result column in ScanType but got %T", c)
 			}

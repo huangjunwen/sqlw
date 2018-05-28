@@ -238,8 +238,42 @@ func (driver mysqlDriver) LoadTableNames(conn *sql.Conn) (tableNames []string, e
 	return tableNames, nil
 }
 
-func (driver mysqlDriver) LoadColumns(conn *sql.Conn, tableName string) (columns []*datasrc.Column, err error) {
-	return driver.LoadQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
+func (driver mysqlDriver) LoadColumns(conn *sql.Conn, tableName string) (tableColumns []*datasrc.TableColumn, err error) {
+	dbName, err := loadDBName(conn)
+	if err != nil {
+		return nil, err
+	}
+
+	columns, err := driver.LoadQueryResultColumns(conn, "SELECT * FROM `"+tableName+"`")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, column := range columns {
+
+		row := conn.QueryRowContext(context.Background(), `
+		SELECT
+			IF(EXTRA='auto_increment', 'auto_increment', COLUMN_DEFAULT)
+		FROM
+			INFORMATION_SCHEMA.COLUMNS
+		WHERE
+			TABLE_SCHEMA=? AND TABLE_NAME=? AND COLUMN_NAME=?
+		`, dbName, tableName, column.Name)
+
+		defaultValue := sql.NullString{}
+		if err := row.Scan(&defaultValue); err != nil {
+			return nil, err
+		}
+
+		tableColumn := &datasrc.TableColumn{
+			Column:       *column,
+			DefaultValue: defaultValue,
+		}
+
+		tableColumns = append(tableColumns, tableColumn)
+	}
+
+	return
 }
 
 func (driver mysqlDriver) LoadAutoIncColumn(conn *sql.Conn, tableName string) (columnName string, err error) {

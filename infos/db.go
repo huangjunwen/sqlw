@@ -30,7 +30,7 @@ type TableInfo struct {
 type ColumnInfo struct {
 	table *TableInfo
 	pos   int // position in table
-	col   *datasrc.Column
+	col   *datasrc.TableColumn
 }
 
 // IndexInfo contains information of an index.
@@ -384,7 +384,7 @@ func (info *ColumnInfo) Pos() int {
 	return info.pos
 }
 
-// ColumnName returns the column name. It returns "" if info is nil.
+// ColumnName returns the table column name. It returns "" if info is nil.
 func (info *ColumnInfo) ColumnName() string {
 	if info == nil {
 		return ""
@@ -392,8 +392,24 @@ func (info *ColumnInfo) ColumnName() string {
 	return info.col.Name
 }
 
-// Col returns the underly datasrc.Column. It returns nil if info is nil.
-func (info *ColumnInfo) Col() *datasrc.Column {
+// HasDefaultValue returns true if the table column has a defualt value. It returns false if info is nil.
+func (info *ColumnInfo) HasDefaultValue() bool {
+	if info == nil {
+		return false
+	}
+	return info.col.DefaultValue.Valid
+}
+
+// DefaultValue returns the default value literal of the table column.
+func (info *ColumnInfo) DefaultValue() string {
+	if info == nil {
+		return ""
+	}
+	return info.col.DefaultValue.String
+}
+
+// Col returns the underly datasrc.TableColumn. It returns nil if info is nil.
+func (info *ColumnInfo) Col() *datasrc.TableColumn {
 	if info == nil {
 		return nil
 	}
