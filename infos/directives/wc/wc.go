@@ -122,7 +122,8 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 
 				// Enter wildcard mode
 				if curWildcard != nil {
-					panic(fmt.Errorf("Expect not in wildcard mode "))
+					return fmt.Errorf("<wc>: Expect not in wildcard mode but already in <wc table=%+q as=%+q>.",
+						curWildcard.table.TableName(), curWildcard.tableAlias)
 				}
 				curWildcard = info.directives[idx]
 				curWildcardColPos = 0
@@ -131,10 +132,11 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 
 				// Exit wildcard mode
 				if curWildcard == nil {
-					panic(fmt.Errorf("Expect in wildcard mode "))
+					return fmt.Errorf("<wc>: Expect in wildcard mode But not.")
 				}
 				if curWildcardColPos != curWildcard.table.NumColumn() {
-					panic(fmt.Errorf("Expect column pos == %d, but got %d", curWildcard.table.NumColumn(), curWildcardColPos))
+					return fmt.Errorf("<wc>: Expect table column pos %d, but got %d.",
+						curWildcard.table.NumColumn(), curWildcardColPos)
 				}
 				curWildcard = nil
 				curWildcardColPos = 0
@@ -158,7 +160,12 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 			// In wildcard mode
 			wildcardColumn := curWildcard.table.Column(curWildcardColPos)
 			if !wildcardColumn.Valid() {
-				panic(fmt.Errorf("Bad wildcard column: table(%+q) column(%d)", curWildcard.table.String(), curWildcardColPos))
+				return fmt.Errorf("<wc>: Invalid column pos %d for table %s.",
+					curWildcardColPos, curWildcard.table.String())
+			}
+			if wildcardColumn.Col().DataType != resultCol.DataType {
+				return fmt.Errorf("<wc>: Expect data type is %+q but got %+q for table column %s.%s",
+					wildcardColumn.Col().DataType, resultCol.DataType, wildcardColumn.Table().TableName(), wildcardColumn.ColumnName())
 			}
 			curWildcardColPos += 1
 			info.wildcardColumns = append(info.wildcardColumns, wildcardColumn)
@@ -166,6 +173,10 @@ func (info *WildcardsInfo) processQueryResultColumns(resultCols *[]*datasrc.Colu
 
 		}
 
+	}
+
+	if curWildcard != nil {
+		return fmt.Errorf("<wc>: Wildcard mode is not exited.")
 	}
 
 	*resultCols = processedResultCols
