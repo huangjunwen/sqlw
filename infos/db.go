@@ -390,22 +390,6 @@ func (info *ColumnInfo) ColumnName() string {
 	return info.col.Name
 }
 
-// HasDefaultValue returns true if the table column has a defualt value. It returns false if info is nil.
-func (info *ColumnInfo) HasDefaultValue() bool {
-	if info == nil {
-		return false
-	}
-	return info.col.DefaultValue.Valid
-}
-
-// DefaultValue returns the default value literal of the table column.
-func (info *ColumnInfo) DefaultValue() string {
-	if info == nil {
-		return ""
-	}
-	return info.col.DefaultValue.String
-}
-
 // Col returns the underly datasrc.TableColumn. It returns nil if info is nil.
 func (info *ColumnInfo) Col() *datasrc.TableColumn {
 	if info == nil {
